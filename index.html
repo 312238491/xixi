@@ -1,0 +1,1744 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>溪溪的日常记录</title>
+<meta name="apple-mobile-web-app-title" content="溪溪日常">
+<link rel="apple-touch-icon" sizes="180x180" href="icon.png">
+<link rel="icon" type="image/png" href="icon.png">
+<meta name="theme-color" content="#f4f9ff">
+<style>
+  :root{
+    --main:#7fb0e8;
+    --main-deep:#4278b8;
+    --main-soft:#eaf2fd;
+    --text:#3b4657;
+    --text-sub:#8a97a8;
+    --line:#e4ecf6;
+    --card:#ffffff;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Helvetica Neue",Arial,sans-serif;
+    background:linear-gradient(180deg,#eef5fe 0%,#f8fbff 260px);
+    color:var(--text);
+    min-height:100vh;
+    padding-bottom:24px;
+  }
+  .app{max-width:560px;margin:0 auto;padding:0 16px;}
+
+  /* ---------- 顶部标题 ---------- */
+  header{padding:22px 0 14px;text-align:center;}
+  h1{
+    font-size:24px;margin:0;letter-spacing:2px;font-weight:700;
+    background:linear-gradient(90deg,#7fb0e8,#9d8fe0);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  .subtitle{font-size:12px;color:var(--text-sub);margin-top:6px;letter-spacing:1px;}
+
+  /* ---------- 日期栏 ---------- */
+  .datebar{
+    display:flex;align-items:center;gap:8px;
+    background:var(--card);border-radius:16px;padding:10px 12px;
+    box-shadow:0 4px 16px rgba(150,180,220,.16);
+  }
+  .datebar .nav{
+    width:34px;height:34px;flex:0 0 auto;border:none;border-radius:50%;
+    background:var(--main-soft);color:var(--main-deep);font-size:18px;line-height:1;
+    display:flex;align-items:center;justify-content:center;cursor:pointer;
+  }
+  .datebar .nav:active{background:#dbe8fa;}
+  .datebar input[type=date]{
+    flex:1 1 auto;min-width:0;border:none;background:transparent;
+    font-size:16px;font-weight:600;color:var(--text);text-align:center;
+    font-family:inherit;outline:none;
+  }
+  .datebar .today{
+    flex:0 0 auto;border:none;border-radius:10px;background:var(--main-soft);
+    color:var(--main-deep);font-size:13px;padding:7px 10px;cursor:pointer;font-family:inherit;
+  }
+
+  /* ---------- 按次项目卡片（每行 4 格，宽度按每天次数占格） ---------- */
+  .section{margin-top:22px;}
+  /* dense：卡片加宽后自动回填空位，位置和大小互相自适应 */
+  .check-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;align-items:start;grid-auto-flow:row dense;}
+  .check-card{
+    position:relative;
+    background:var(--card);border-radius:14px;padding:10px;
+    box-shadow:0 4px 16px rgba(150,180,220,.14);
+    display:flex;flex-direction:column;gap:7px;min-width:0;
+    -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
+  }
+  /* 长按拖动换位 */
+  .check-card.drag-src{opacity:.35;}
+  .check-card.drag-over{outline:2px dashed var(--main);outline-offset:3px;}
+  .check-card.drag-ghost{
+    position:fixed;z-index:99;pointer-events:none;margin:0;
+    opacity:.95;transform:scale(1.03);
+    box-shadow:0 16px 40px rgba(127,176,232,.45);
+  }
+  /* 互斥组：同组的项目合并进同一张卡片组，组宽按成员个数占格（2 个占一半、3 个占 3/4），
+   * 成员之间左右并排、永远相邻，不会被别的卡片插开 */
+  .check-cards .check-group{
+    display:flex;align-items:stretch;gap:8px;
+    background:var(--card);border-radius:14px;padding:10px;
+    box-shadow:0 4px 16px rgba(150,180,220,.14);
+    min-width:0;
+  }
+  .check-cards .check-group .check-card{
+    flex:1 1 0;min-width:0;padding:0;background:transparent;box-shadow:none;
+  }
+  .check-card .cname{font-size:18px;font-weight:600;line-height:1.3;display:flex;align-items:baseline;justify-content:center;gap:3px;min-width:0;padding:0 14px;}
+  .check-card .cname .cname-txt{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  /* 用名称文字颜色区分是否朗读：开启朗读（可点击朗读）为品牌蓝，关闭为普通文字色 */
+  .check-card .cname.say{color:var(--main-deep);cursor:pointer;}
+  .check-card .cname.say:active{opacity:.55;}
+  /* 「今天不用做」的叉：叉上后卡片粉红标识、勾选框不可点，下方总进度按已完成计算 */
+  .check-card .skip{
+    position:absolute;top:4px;right:4px;width:20px;height:20px;padding:0;
+    border:1.5px solid var(--line);border-radius:50%;background:#fff;
+    color:#c6d1dd;font-size:11px;line-height:1;font-family:inherit;
+    display:flex;align-items:center;justify-content:center;cursor:pointer;
+  }
+  .check-card .skip:active{background:#eef3f9;}
+  .check-card .skip.on{border-color:#e0708f;background:#fdeef4;color:#e0708f;font-weight:700;}
+  .check-card.skipped{background:#fdeef4;}
+  .check-card.skipped .cname,.check-card.skipped .cname.say{color:#e0708f;text-decoration:line-through;cursor:default;}
+  .check-card.skipped .boxes{opacity:.35;pointer-events:none;}
+  .check-card .boxes{display:flex;flex-wrap:wrap;gap:6px;width:100%;}
+  .cb{
+    flex:1 1 0;min-width:0;
+    display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;user-select:none;
+    padding:6px 4px;border-radius:10px;background:#f7fafd;transition:.15s;
+  }
+  .cb:active{transform:scale(.97);}
+  .cb .box{
+    width:20px;height:20px;border-radius:6px;border:2px solid #d5e2f0;background:#fff;
+    display:flex;align-items:center;justify-content:center;transition:.18s;flex:0 0 auto;
+  }
+  .cb .box svg{width:13px;height:13px;opacity:0;transform:scale(.6);transition:.18s;}
+  .cb .box svg path{stroke:#fff;stroke-width:3;fill:none;stroke-linecap:round;stroke-linejoin:round;}
+  .cb .time{font-size:10px;line-height:1;color:var(--text-sub);font-variant-numeric:tabular-nums;}
+  .cb.done{background:var(--main-soft);}
+  .cb.done .box{background:var(--main);border-color:var(--main);}
+  .cb.done .box svg{opacity:1;transform:scale(1);}
+  .cb.done .time{color:var(--main-deep);font-weight:600;}
+
+  /* ---------- 今日完成度 ---------- */
+  .progress-card{
+    background:var(--card);border-radius:16px;padding:14px 18px;
+    box-shadow:0 4px 16px rgba(150,180,220,.14);
+    font-size:14px;color:var(--text-sub);letter-spacing:1px;
+  }
+  .progress-card b{color:var(--main-deep);font-size:17px;}
+
+  /* ---------- 数据导入 / 导出（弱化样式） ---------- */
+  .data-tools{
+    display:flex;align-items:center;justify-content:center;gap:8px;
+    margin:20px 0 6px;
+  }
+  .data-tools button{
+    border:none;background:none;font-family:inherit;font-size:12px;
+    color:#bcc7d4;padding:6px 4px;cursor:pointer;letter-spacing:1px;
+  }
+  .data-tools button:active{color:var(--main-deep);}
+  .data-tools .sep{color:#e2e9f2;font-size:11px;}
+  .sync-line{margin:0 0 6px;}
+  #syncState{font-size:12px;color:#bcc7d4;letter-spacing:1px;}
+  #syncState.ok{color:#7fbf9a;}
+  #syncState.busy{color:#c9a86a;}
+  #syncState.err{color:#e0708f;}
+
+  /* ---------- 弹层 ---------- */
+  .mask{
+    position:fixed;inset:0;background:rgba(59,70,87,.42);z-index:50;
+    display:none;align-items:center;justify-content:center;padding:20px;
+  }
+  .mask.show{display:flex;}
+  .modal{
+    background:#fff;border-radius:20px;width:100%;max-width:380px;
+    padding:22px 20px;box-shadow:0 20px 50px rgba(0,0,0,.2);
+    animation:pop .18s ease-out;
+    max-height:88vh;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  }
+  @keyframes pop{from{transform:scale(.94);opacity:.4}to{transform:scale(1);opacity:1}}
+  .modal h3{margin:0 0 4px;font-size:17px;text-align:center;}
+  .modal .m-sub{text-align:center;font-size:12px;color:var(--text-sub);margin-bottom:16px;}
+  .modal input[type=text]{
+    width:100%;border:2px solid var(--line);border-radius:12px;padding:11px;
+    font-size:13px;font-family:inherit;color:var(--text);outline:none;background:#fbfdff;
+  }
+  .modal input[type=text]:focus{border-color:var(--main);background:#fff;}
+  .modal .unit{text-align:center;font-size:12px;color:var(--text-sub);margin-top:6px;}
+  .modal .acts{display:flex;gap:10px;margin-top:18px;}
+  .modal .acts button{
+    flex:1;border:none;border-radius:14px;padding:13px 0;font-size:15px;font-weight:600;
+    font-family:inherit;cursor:pointer;
+  }
+  .modal .acts .cancel{background:#eff3f8;color:#7d8794;}
+  .modal .acts .ok{background:linear-gradient(135deg,#7fb0e8,#6d93d8);color:#fff;}
+
+  /* ---------- 管理项目弹层 ---------- */
+  .modal .item-list{max-height:44vh;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+  .modal .item-row{display:flex;align-items:center;gap:8px;padding:6px 0;}
+  .modal .item-block+.item-block{border-top:1px solid var(--line);}
+  .modal .item-row .item-name{
+    flex:1 1 auto;min-width:0;border:2px solid var(--line);border-radius:10px;
+    padding:9px 10px;font-size:14px;font-family:inherit;color:var(--text);
+    outline:none;background:#fbfdff;
+  }
+  .modal .item-row .item-name:focus{border-color:var(--main);background:#fff;}
+  .modal .item-row .item-count{
+    flex:0 0 62px;width:62px;border:2px solid var(--line);border-radius:10px;
+    padding:9px 4px;font-size:15px;font-weight:700;text-align:center;
+    font-family:inherit;color:var(--text);outline:none;background:#fbfdff;
+  }
+  .modal .item-row .item-count:focus{border-color:var(--main);background:#fff;}
+  .modal .item-row .item-del{
+    flex:0 0 auto;border:none;background:transparent;color:#cfd8e3;font-size:18px;
+    cursor:pointer;padding:2px 8px;line-height:1;border-radius:8px;
+  }
+  .modal .item-row .item-del:active{background:#eef3f9;color:var(--main-deep);}
+  /* 每个项目的「朗读」开关 + 文案输入（开关关着时输入框灰显，仍能看到默认文案） */
+  .modal .say-row{display:flex;align-items:center;gap:8px;padding:0 0 10px;}
+  .modal .say-toggle{
+    flex:0 0 auto;border:2px solid var(--line);background:#fbfdff;color:#b9c4d0;
+    border-radius:10px;padding:9px 10px;font-size:12px;font-weight:600;line-height:1.2;
+    cursor:pointer;font-family:inherit;white-space:nowrap;
+  }
+  .modal .say-toggle:active{background:#eef3f9;}
+  .modal .say-toggle.on{border-color:var(--main);background:var(--main-soft);color:var(--main-deep);}
+  .modal .say-text{
+    flex:1 1 auto;min-width:0;border:2px solid var(--line);border-radius:10px;padding:9px 10px;
+    font-size:13px;font-family:inherit;color:var(--text);outline:none;background:#fbfdff;
+  }
+  .modal .say-text:focus{border-color:var(--main);background:#fff;}
+  .modal .say-text:disabled{background:#f6f8fb;color:#aab6c3;}
+  /* 朗读文案可以有多条（以 JSON 数组存进 say_text），每次随机念一条 */
+  .modal .say-hint{flex:1 1 auto;min-width:0;font-size:11px;color:var(--text-sub);line-height:1.3;}
+  .modal .say-list{display:flex;flex-direction:column;gap:6px;padding:0 0 10px;}
+  .modal .say-list.off{opacity:.7;}
+  .modal .say-item{display:flex;align-items:center;gap:6px;}
+  .modal .say-del{
+    flex:0 0 auto;border:none;background:transparent;color:#cfd8e3;font-size:18px;
+    cursor:pointer;padding:2px 8px;line-height:1;border-radius:8px;
+  }
+  .modal .say-del:active{background:#eef3f9;color:var(--main-deep);}
+  .modal .say-del:disabled{color:#eef2f7;cursor:default;}
+  .modal .say-add{
+    align-self:flex-start;border:2px dashed var(--line);background:#fbfdff;color:var(--main-deep);
+    border-radius:10px;padding:7px 10px;font-size:12px;font-family:inherit;cursor:pointer;
+  }
+  .modal .say-add:active{background:#eef3f9;}
+  .modal .say-add:disabled{border-color:#eef2f7;color:#ccd6e0;cursor:default;}
+  /* 两组朗读文案：call=点项目名称时念（叫溪溪来），praise=勾选完成时念（夸溪溪） */
+  .modal .say-block{padding:0 0 8px;}
+  .modal .say-sub{font-size:11px;font-weight:600;color:var(--main-deep);padding:0 0 6px;}
+  /* 每个项目的「互斥组」：两个项目填同一个组名，同一天只能勾一个，统计也只算一次 */
+  .modal .excl-row,.modal .width-row{display:flex;align-items:center;gap:8px;padding:0 0 10px;}
+  .modal .excl-tag,.modal .width-tag{
+    flex:0 0 auto;border:2px solid var(--line);background:#fbfdff;color:#b9c4d0;
+    border-radius:10px;padding:9px 10px;font-size:12px;font-weight:600;line-height:1.2;
+    font-family:inherit;white-space:nowrap;
+  }
+  .modal .excl-tag.on{border-color:var(--main);background:var(--main-soft);color:var(--main-deep);}
+  .modal .width-tag.on{border-color:var(--main);background:var(--main-soft);color:var(--main-deep);}
+  .modal .item-excl{
+    flex:1 1 auto;min-width:0;border:2px solid var(--line);border-radius:10px;padding:9px 10px;
+    font-size:13px;font-family:inherit;color:var(--text);outline:none;background:#fbfdff;
+  }
+  .modal .item-excl:focus{border-color:var(--main);background:#fff;}
+  /* 卡片宽度：自动（按次数 + 名称自适应）或手动固定占 1~4 格（1 格 = 1/4 行） */
+  .modal .item-span{
+    flex:0 0 auto;min-width:74px;border:2px solid var(--line);border-radius:10px;padding:8px 6px;
+    font-size:13px;font-family:inherit;color:var(--text);outline:none;background:#fbfdff;
+  }
+  .modal .item-span:focus{border-color:var(--main);background:#fff;}
+  .modal .item-add{display:flex;align-items:center;gap:8px;margin-top:12px;}
+  .modal .item-add input[type=text]{
+    flex:1 1 auto;min-width:0;border:2px solid var(--line);border-radius:10px;
+    padding:10px;font-size:14px;font-family:inherit;color:var(--text);
+    outline:none;background:#fbfdff;
+  }
+  .modal .item-add input[type=text]:focus{border-color:var(--main);background:#fff;}
+  .modal .item-add input[type=number]{
+    flex:0 0 62px;width:62px;border:2px solid var(--line);border-radius:10px;
+    padding:10px 4px;font-size:15px;font-weight:700;text-align:center;
+    font-family:inherit;color:var(--text);outline:none;background:#fbfdff;
+  }
+  .modal .item-add input[type=number]:focus{border-color:var(--main);background:#fff;}
+  .modal .item-add button{
+    flex:0 0 auto;border:none;border-radius:10px;padding:11px 14px;
+    background:linear-gradient(135deg,#7fb0e8,#6d93d8);color:#fff;
+    font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;
+  }
+  .modal .item-add button:active{opacity:.86;}
+  .empty{padding:26px 14px;text-align:center;color:var(--text-sub);font-size:13px;}
+
+  /* ---------- 手机适配 ---------- */
+  @media (max-width:520px){
+    .app{padding:0 12px;}
+    header{padding:16px 0 12px;}
+    h1{font-size:21px;letter-spacing:1px;}
+    .datebar{gap:6px;padding:8px 10px;border-radius:14px;}
+    .datebar .nav{width:30px;height:30px;font-size:16px;}
+    .datebar input[type=date]{font-size:14px;}
+    .datebar .today{font-size:12px;padding:6px 8px;border-radius:9px;}
+    .section{margin-top:16px;}
+    .check-card{padding:11px 12px;border-radius:14px;}
+    .check-card .cname{font-size:18px;}
+    .modal{padding:18px 16px;border-radius:16px;}
+  }
+  @media (max-width:360px){
+    .datebar .today{display:none;}
+    .check-card .boxes{gap:6px;}
+    .cb{padding:5px 7px;}
+  }
+
+  /* 屏蔽 EdgeOne 部署环境在页面底部注入的提示条。
+   * 它是平台脚本 unified.js 动态插进 body 的 #edgeone-watermark（行内 display:flex），
+   * 用 !important 压住即可；只隐藏不删除——删了会被它自己的 MutationObserver 重新插回来。 */
+  #edgeone-watermark,#fab-popup{display:none !important;}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header>
+    <h1>溪溪的日常记录</h1>
+    <div class="subtitle">每天的小任务，一起打勾勾</div>
+  </header>
+
+  <!-- 日期栏 -->
+  <div class="datebar">
+    <button class="nav" id="prevDay" title="前一天">‹</button>
+    <input type="date" id="datePicker">
+    <button class="nav" id="nextDay" title="后一天">›</button>
+    <button class="today" id="todayBtn">今天</button>
+  </div>
+
+  <!-- 按次项目 -->
+  <section class="section">
+    <div class="check-cards" id="checkCards"></div>
+  </section>
+
+  <!-- 今日完成度 -->
+  <section class="section">
+    <div class="progress-card" id="progressCard"></div>
+  </section>
+
+  <!-- 数据导入 / 导出 -->
+  <div class="data-tools">
+    <button id="manageItemsBtn" type="button">管理项目</button>
+    <span class="sep">·</span>
+    <button id="exportBtn" type="button">导出数据</button>
+    <span class="sep">·</span>
+    <button id="importBtn" type="button">导入数据</button>
+    <span class="sep">·</span>
+    <button id="updateBtn" type="button">更新版本</button>
+    <input type="file" id="importFile" accept=".json,application/json" hidden>
+  </div>
+
+  <!-- 云端同步状态 -->
+  <div class="data-tools sync-line">
+    <span id="syncState">☁ 未同步</span>
+    <span class="sep">·</span>
+    <button id="syncBtn" type="button">立即同步</button>
+  </div>
+</div>
+
+<!-- 管理项目弹层 -->
+<div class="mask" id="itemsMask">
+  <div class="modal">
+    <h3>管理项目</h3>
+    <div class="m-sub">增删或修改每天要做的项目，改动会同步到其他手机</div>
+    <div class="item-list" id="itemList"></div>
+    <datalist id="exclList"></datalist>
+    <div class="item-add">
+      <input type="text" id="newItemName" maxlength="12" placeholder="新项目名称"
+             autocomplete="off" autocapitalize="off" spellcheck="false">
+      <input type="number" id="newItemCount" min="1" max="20" value="1" inputmode="numeric" title="每天次数">
+      <button id="newItemAdd" type="button">添加</button>
+    </div>
+    <div class="acts">
+      <button class="ok" id="itemsClose">完成</button>
+    </div>
+  </div>
+</div>
+
+<!-- 更新版本弹层 -->
+<div class="mask" id="updateMask">
+  <div class="modal">
+    <h3>更新版本</h3>
+    <div class="m-sub">粘贴控制台最新生成的完整链接（域名 + token）</div>
+    <input type="text" id="updateInput" placeholder="https://…edgeone.dev/?eo_token=…"
+           autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+    <div class="unit" id="updateHint">仅替换页面缓存，不影响已有记录</div>
+    <div class="acts">
+      <button class="cancel" id="updateCancel">取消</button>
+      <button class="ok" id="updateOk">更新</button>
+    </div>
+  </div>
+</div>
+
+<script src="sync.js"></script>
+<script>
+(function(){
+  'use strict';
+
+  var STORE_KEY = 'xixi_records_v1';
+  var ITEMS_KEY = 'xixi_items_v1';
+  var APP_ID    = 'xixi';
+
+  /* 默认项目：仅在本机与云端都没有项目时用来播种（之后以数据库为准，可随时增删） */
+  var SEED_ITEMS = [
+    { id:'changdi4',    name:'畅迪4号',    count:1 },
+    { id:'calcium',     name:'钙',         count:1 },
+    { id:'drops',       name:'滴剂',       count:2 },
+    { id:'vitaminAD',   name:'维生素AD',   count:1 },
+    { id:'vitaminD',    name:'维生素D',    count:1 },
+    { id:'gummy',       name:'维生素软糖', count:1 },
+    { id:'probiotic',   name:'益生菌',     count:1 },
+    { id:'salineSpray', name:'喷雾(盐水)', count:3 },
+    { id:'medSpray',    name:'喷雾(药)',   count:1 }
+  ];
+
+  var data  = load();
+  var items = loadItems();
+  var curDate = todayStr();
+
+  /* ---------------- 工具 ---------------- */
+  function pad(n){ return n < 10 ? '0' + n : '' + n; }
+
+  function todayStr(){
+    var d = new Date();
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  }
+
+  function nowTime(){
+    var d = new Date();
+    return pad(d.getHours()) + ':' + pad(d.getMinutes());
+  }
+
+  function shiftDate(str, days){
+    var p = str.split('-');
+    var d = new Date(+p[0], +p[1] - 1, +p[2]);
+    d.setDate(d.getDate() + days);
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  }
+
+  function uid(){
+    return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  }
+
+  function load(){
+    try{
+      var raw = localStorage.getItem(STORE_KEY);
+      return raw ? JSON.parse(raw) : {};
+    }catch(e){ return {}; }
+  }
+
+  function save(){
+    try{ localStorage.setItem(STORE_KEY, JSON.stringify(data)); }catch(e){}
+  }
+
+  /* 项目（每天要做几次）：以数据库为准，本机只是缓存 */
+  function loadItems(){
+    try{
+      var raw = localStorage.getItem(ITEMS_KEY);
+      var list = raw ? JSON.parse(raw) : [];
+      return Array.isArray(list) ? list : [];
+    }catch(e){ return []; }
+  }
+
+  function saveItems(){
+    try{ localStorage.setItem(ITEMS_KEY, JSON.stringify(items)); }catch(e){}
+  }
+
+  function findItem(id){
+    for(var i = 0; i < items.length; i++){ if(items[i].id === id) return items[i]; }
+    return null;
+  }
+
+  function escHtml(s){
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  /* ---------------- 朗读（浏览器内置语音合成，安卓 / iOS 都支持） ---------------- */
+  var TTS_OK  = !!(window.speechSynthesis && window.SpeechSynthesisUtterance);
+  var zhVoice = null;
+
+  /* —— 朗读文案分两类 ——
+   *   call   点击项目名称时念：叫溪溪来做这个项目
+   *   praise 勾选完成时念：夸她做完了这个项目
+   * 统一按 JSON 对象 {"call":[…],"praise":[…]} 存进 sayText；
+   * 旧数据是「单条纯文本」或「字符串数组」，一律并入 call 分类，向后兼容。 */
+  function normLine(x){
+    return String(x == null ? '' : x).replace(/\s+/g, ' ').trim().slice(0, 60);
+  }
+  function normList(a){
+    return (Array.isArray(a) ? a : []).map(normLine).filter(Boolean);
+  }
+  function parseSayGroups(raw){
+    var obj;
+    if(raw && typeof raw === 'object') obj = raw;
+    else{
+      var s = String(raw == null ? '' : raw).trim();
+      if(!s) return { call: [], praise: [] };
+      if(s.charAt(0) === '[' || s.charAt(0) === '{'){
+        try{ obj = JSON.parse(s); }catch(e){ obj = s; }
+      }else obj = s;
+    }
+    if(Array.isArray(obj)) return { call: normList(obj), praise: [] };
+    if(obj && typeof obj === 'object')
+      return { call: normList(obj.call), praise: normList(obj.praise) };
+    return { call: normList([obj]), praise: [] };
+  }
+  function serialSayGroups(g){
+    var call   = normList(g && g.call);
+    var praise = normList(g && g.praise);
+    return (call.length || praise.length) ? JSON.stringify({ call: call, praise: praise }) : '';
+  }
+
+  /* 一条文案都没有时的兜底句，同时用作输入框的占位提示 */
+  function defaultCall(name){
+    return '溪溪，' + String(name || '').trim() + '时间到啦。';
+  }
+  function defaultPraise(name){
+    return '哇，溪溪真棒，' + String(name || '').trim() + '完成啦！';
+  }
+
+  /* 每个项目一键生成的一批文案：10 条「叫溪溪来」+ 10 条「夸溪溪完成」。
+   * 「叫溪溪来」按项目类型分开：吃药 / 喷鼻子 / 洗澡刷牙，避免出现「快来吃洗澡啦」这种句子。 */
+  var CALL_TPLS_EAT = [
+    '溪溪，快来吃{n}啦。',
+    '溪溪，{n}时间到，张大小嘴巴！',
+    '宝贝溪溪，来吃{n}咯。',
+    '溪溪，{n}在等你哦，快来吃。',
+    '小可爱，该吃{n}啦。',
+    '溪溪乖乖，来吃{n}了。',
+    '溪溪，{n}来咯，啊——张嘴！',
+    '宝贝溪溪，快来把{n}吃光光！',
+    '溪溪，今天的{n}要吃啦。',
+    '溪溪，我们一起把{n}吃掉吧。'
+  ];
+  var CALL_TPLS_SPRAY = [
+    '溪溪，快来喷鼻子啦。',
+    '溪溪，喷鼻子时间到，小鼻子准备好！',
+    '宝贝溪溪，来喷喷小鼻子咯。',
+    '溪溪，小鼻子在等你哦，快来。',
+    '小可爱，该喷鼻子啦。',
+    '溪溪乖乖，来喷鼻子了。',
+    '溪溪，喷鼻子来咯，张嘴呼吸哦！',
+    '宝贝溪溪，快来喷喷小鼻子！',
+    '溪溪，小鼻子准备好啦，一下就好！',
+    '溪溪，今天的喷鼻子要开始啦。'
+  ];
+  var CALL_TPLS_DO = [
+    '溪溪，快来{n}啦。',
+    '溪溪，{n}时间到咯！',
+    '宝贝溪溪，我们一起去{n}吧。',
+    '溪溪，{n}在等你哦，快来。',
+    '小可爱，该{n}啦。',
+    '溪溪乖乖，来{n}了。',
+    '溪溪，今天的{n}开始啦！',
+    '来呀溪溪，我们{n}喽。',
+    '溪溪宝贝，{n}准备好啦。',
+    '溪溪，我们一起把{n}做完吧。'
+  ];
+  var PRAISE_TPLS = [
+    '哇，溪溪真棒，{n}完成啦！',
+    '溪溪好厉害，{n}搞定啦！',
+    '真乖呀溪溪，{n}做完啦！',
+    '溪溪真勇敢，{n}一点都没怕！',
+    '太棒啦，溪溪又完成了{n}！',
+    '溪溪好样的，{n}顺利完成！',
+    '溪溪真能干，{n}做得棒棒哒！',
+    '了不起的溪溪，{n}完成得真好！',
+    '溪溪小朋友真棒，{n}搞定喽！',
+    '溪溪今天也超棒，{n}完成啦！'
+  ];
+  function fillTpl(tpls, name){
+    var n = String(name || '').trim();
+    return tpls.map(function(t){ return t.replace(/\{n\}/g, n); });
+  }
+  function callTplsFor(name){
+    var n = String(name || '');
+    if(/喷雾/.test(n)) return CALL_TPLS_SPRAY;      /* 喷雾(盐水) / 喷雾(药) → 喷鼻子 */
+    if(/洗澡|刷牙/.test(n)) return CALL_TPLS_DO;
+    return CALL_TPLS_EAT;                           /* 其余都是入口的药 / 滴剂 / 钙等 */
+  }
+  function seedSay(name){
+    return { call: fillTpl(callTplsFor(name), name), praise: fillTpl(PRAISE_TPLS, name) };
+  }
+
+  /* 某项目某一类朗读文案；没配过就用一键生成的那批兜底 */
+  function sayList(p, kind){
+    var g = parseSayGroups(p && p.sayText);
+    var list = kind === 'praise' ? g.praise : g.call;
+    if(list.length) return list;
+    var seed = seedSay(p ? p.name : '');
+    return kind === 'praise' ? seed.praise : seed.call;
+  }
+
+  function pickSay(list){
+    return list[Math.floor(Math.random() * list.length)];
+  }
+
+  /* 优先挑中文语音（部分设备语音列表是异步就绪的，所以再监听一次） */
+  function pickVoice(){
+    if(!TTS_OK) return;
+    var vs = window.speechSynthesis.getVoices() || [];
+    for(var i = 0; i < vs.length; i++){
+      if(/^zh/i.test(vs[i].lang) || /Chinese|中文|普通话/i.test(vs[i].name)){ zhVoice = vs[i]; return; }
+    }
+  }
+
+  function speakText(txt){
+    if(!TTS_OK){ alert('这个浏览器不支持网页语音朗读（夸克等浏览器的内核没有提供语音接口）。\n请用手机自带浏览器，或 Chrome / Edge 打开溪溪页面后重试。'); return; }
+    txt = String(txt || '').trim();
+    if(!txt) return;
+    var synth = window.speechSynthesis;
+    if(synth.speaking || synth.pending) synth.cancel();   /* 打断上一条 */
+    var u = new SpeechSynthesisUtterance(txt);
+    u.lang  = 'zh-CN';
+    if(zhVoice) u.voice = zhVoice;
+    u.rate  = 0.95;
+    u.pitch = 1;
+    u.onerror = function(ev){   /* 接口在、但发声失败（缺中文语音引擎）时给出可操作的提示 */
+      if(ev && ev.error === 'synthesis-failed')
+        alert('语音朗读失败：请到手机「设置 - 无障碍 / 文字转语音」里开启系统中文语音后重试。');
+    };
+    synth.speak(u);            /* 必须在“用户点击”里调用，否则 iOS 不发声 */
+  }
+
+  /* 念某项目的一句话：kind='call' 叫溪溪来，kind='praise' 夸她完成 */
+  function speakItem(id, kind){
+    var p = findItem(id);
+    if(!p || !p.say) return;
+    speakText(pickSay(sayList(p, kind === 'praise' ? 'praise' : 'call')));
+  }
+
+  /* ---------------- 进度鼓励：跨过 30% / 50% / 80% / 100% 时播报 ----------------
+   * 文案存在云端 duoduo_sayings 表（stage = 30/50/80/100），本机只读缓存。
+   * 占位符 {done} {left} {percent} 替换成真实数字；{percent} 用中文读法（百分之六十二）。 */
+  var STAGES    = [30, 50, 80, 100];
+  var STAGE_KEY = 'xixi_say_stage_v1';
+
+  /* 0~100 → 中文：62 → 六十二，100 → 一百 */
+  function cnNum(n){
+    n = Math.round(n);
+    if(n < 0) n = 0;
+    if(n > 100) n = 100;
+    var d = ['零','一','二','三','四','五','六','七','八','九'];
+    if(n < 10) return d[n];
+    if(n === 10) return '十';
+    if(n < 20) return '十' + d[n - 10];
+    if(n === 100) return '一百';
+    var o = n % 10;
+    return d[Math.floor(n / 10)] + '十' + (o ? d[o] : '');
+  }
+
+  function fillSay(tpl, st){
+    return String(tpl == null ? '' : tpl)
+      .replace(/\{done\}/g, String(st.done))
+      .replace(/\{left\}/g, String(Math.max(0, st.total - st.done)))
+      .replace(/\{percent\}/g, '百分之' + cnNum(st.percent));
+  }
+
+  function sayingsForStage(stage){
+    var all = (sync && sync.getSayings) ? sync.getSayings() : [];
+    var out = [];
+    all.forEach(function(r){ if(+r.stage === stage && r.text) out.push(String(r.text)); });
+    return out;
+  }
+
+  /* 今天已经播过的档位（同一天每档最多一次），只保留当天 */
+  function playedStages(){
+    try{
+      var m = JSON.parse(localStorage.getItem(STAGE_KEY) || '{}');
+      var a = m && m[curDate];
+      return Array.isArray(a) ? a : [];
+    }catch(e){ return []; }
+  }
+  function markStages(list){
+    var m = {};
+    m[curDate] = list;
+    try{ localStorage.setItem(STAGE_KEY, JSON.stringify(m)); }catch(e){}
+  }
+
+  /* 勾选后调用：prev / cur 是勾选前后的总完成百分比。
+   * 跨过档位并成功播报比例语音时返回 true，否则返回 false（由调用方改念项目夸奖语）。 */
+  function cheerProgress(prev, cur){
+    if(!TTS_OK || cur <= prev) return false;
+    var st = progressStat();
+    if(!st.total) return false;
+    var played = playedStages();
+    var crossed = [];
+    STAGES.forEach(function(s){
+      if(cur >= s && prev < s && played.indexOf(s) < 0) crossed.push(s);
+    });
+    if(!crossed.length) return false;
+    markStages(played.concat(crossed));            /* 跨过的档都记下，当天不再重复 */
+    var pool = sayingsForStage(crossed[crossed.length - 1]);   /* 一次跨多档只播最高档 */
+    if(!pool.length) return false;
+    speakText(fillSay(pickSay(pool), st));
+    return true;
+  }
+
+  if(TTS_OK){
+    pickVoice();
+    window.speechSynthesis.onvoiceschanged = pickVoice;
+  }
+
+  /* 勾选记录在云端的主键：必须带 app 前缀，否则和多多同一天同项目会撞车 */
+  function sidFor(dayStr, key, idx){
+    return APP_ID + '|' + dayStr + '|' + key + '|' + idx;
+  }
+
+  /* 「今天不用做」标记在云端的主键（每天每个项目一条） */
+  function skipSid(dayStr, key){
+    return APP_ID + '|' + dayStr + '|' + key + '|skip';
+  }
+
+  /* 取某天的记录，保证结构完整 */
+  function getDay(date){
+    if(!data[date]) data[date] = { checks:{} };
+    var d = data[date];
+    if(!d.checks) d.checks = {};
+    if(!d.skips)  d.skips  = {};                 /* 当天叉掉「不用做」的项目 */
+    items.forEach(function(p){
+      if(!Array.isArray(d.checks[p.id])) d.checks[p.id] = [];
+      while(d.checks[p.id].length < p.count) d.checks[p.id].push(null);
+      d.checks[p.id].length = p.count;      /* 项目改次数后自动补齐/裁剪 */
+    });
+    return d;
+  }
+
+  /* ---------------- 渲染 ---------------- */
+  function renderChecks(){
+    var day = getDay(curDate);
+    var wrap = document.getElementById('checkCards');
+
+    if(!items.length){
+      wrap.innerHTML = '<div class="check-card" style="grid-column:span 4">' +
+                         '<div class="cname" style="font-weight:400;font-size:13px;color:var(--text-sub)">' +
+                           '还没有项目，点底部「管理项目」添加吧 ~</div></div>';
+      return;
+    }
+
+    /* 卡片占几格：手动配了 p.span（1~4）就固定用它；否则按每天次数（1 次占 1/4，2 次占一半，
+     * 3 次占 3/4，4 次及以上占满行），之后再由 fitCardSpans 按名称长度自适应加宽 */
+    function spanOf(p){
+      if(p.span >= 1 && p.span <= 4) return Math.round(p.span);
+      var s = p.count > 0 ? p.count : 1;
+      return s > 4 ? 4 : s;
+    }
+    /* 单张卡片：inGroup 时作为卡片组的成员，按占格数分配组内宽度，不再单独占网格格位 */
+    function cardHtml(p, inGroup){
+      var times = day.checks[p.id] || [];
+      var span  = spanOf(p);
+      var fixed = (p.span >= 1 && p.span <= 4);   /* 手动指定的宽度固定生效，不再自动加宽 */
+      var skipped = !!(day.skips && day.skips[p.id]);   /* 叉掉 = 今天不用做 */
+      var html = '<div class="check-card' + (skipped ? ' skipped' : '') + '" data-id="' + escHtml(p.id) + '"' +
+                 (inGroup ? ' style="flex-grow:' + span + '"'
+                          : (fixed ? ' style="grid-column:span ' + span + '"'
+                                   : ' data-span="' + span + '" style="grid-column:span ' + span + '"')) +
+                 '>';
+      html +=   '<button class="skip' + (skipped ? ' on' : '') + '" type="button" ' +
+                  'data-skip="' + escHtml(p.id) + '" title="今天不用做">✕</button>';
+      html +=   '<div class="cname' + (p.say ? ' say' : '') + '" data-say="' + escHtml(p.id) + '">' +
+                  '<span class="cname-txt">' + escHtml(p.name) + '</span>' +
+                '</div>';
+      html +=   '<div class="boxes">';
+      for(var i = 0; i < p.count; i++){
+        var t = times[i];
+        html += '<div class="cb' + (t ? ' done' : '') + '" data-key="' + p.id + '" data-idx="' + i + '">' +
+                  '<span class="box"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span>' +
+                  '<span class="time">' + (t ? t : '未记录') + '</span>' +
+                '</div>';
+      }
+      html +=   '</div>';
+      html += '</div>';
+      return html;
+    }
+
+    /* 同组项目合并进同一张卡片组，组宽按成员个数占格（2 个占一半、3 个占 3/4、4 个及以上占满行）；
+     * 组的位置取组内第一个项目在列表中的位置，组内顺序也按列表顺序。 */
+    var blocks = [], seenGroup = {};
+    items.forEach(function(p){
+      var g = p.exclGroup || '';
+      if(!g){ blocks.push([p]); return; }
+      if(seenGroup[g]) return;
+      seenGroup[g] = true;
+      blocks.push(items.filter(function(q){ return (q.exclGroup || '') === g; }));
+    });
+
+    var html = '';
+    blocks.forEach(function(members){
+      if(members.length > 1){
+        var gspan = members.length > 4 ? 4 : members.length;
+        html += '<div class="check-group" data-group="' + escHtml(members[0].exclGroup) + '"' +
+                ' style="grid-column:span ' + gspan + '">';
+        members.forEach(function(p){ html += cardHtml(p, true); });
+        html += '</div>';
+        return;
+      }
+      html += cardHtml(members[0], false);
+    });
+
+    wrap.innerHTML = html;
+    fitCardSpans(wrap);
+    wrap.querySelectorAll('.cb').forEach(function(el){
+      el.addEventListener('click', function(){
+        toggleCheck(el.getAttribute('data-key'), +el.getAttribute('data-idx'));
+      });
+    });
+    /* 点了朗读开关的项目：点项目名称读出配置的文案 */
+    wrap.querySelectorAll('.cname.say').forEach(function(el){
+      el.addEventListener('click', function(){ speakItem(el.getAttribute('data-say')); });
+    });
+    /* 「今天不用做」的叉：叉上 / 取消叉都会同步到其他手机 */
+    wrap.querySelectorAll('.skip').forEach(function(el){
+      el.addEventListener('click', function(e){
+        e.stopPropagation();
+        toggleSkip(el.getAttribute('data-skip'));
+      });
+    });
+  }
+
+  /* 项目名称自适应：一行放不下时不缩字号，而是让卡片占更宽的格（最宽占满一行），
+   * 网格 dense 自动回填空位，卡片之间位置和大小互相自适应 */
+  function fitCardSpans(wrap){
+    wrap.querySelectorAll('.check-card[data-span]').forEach(function(card){
+      var txt = card.querySelector('.cname-txt');
+      if(!txt) return;
+      var span = parseInt(card.getAttribute('data-span'), 10) || 1;
+      card.style.gridColumn = 'span ' + span;
+      while(span < 4 && txt.scrollWidth > txt.clientWidth){
+        span++;
+        card.style.gridColumn = 'span ' + span;
+      }
+    });
+  }
+  /* 屏幕旋转 / 窗口缩放后重新测量 */
+  window.addEventListener('resize', function(){
+    fitCardSpans(document.getElementById('checkCards'));
+  });
+
+  /* ---------------- 卡片长按拖动换位 ----------------
+   * 长按 300ms 进入拖动（期间手指滑走超过 10px 视为滚动、自动取消）；
+   * 拖到目标卡片上松手即移动位置，顺序写回项目列表并同步云端。
+   * 点勾选框 / 朗读名称不会触发拖动。 */
+  (function(){
+    var wrap   = document.getElementById('checkCards');
+    var HOLD   = 300, WIGGLE = 10;
+    var timer  = null, dragEl = null, ghost = null;
+    var sx = 0, sy = 0, grabX = 0, grabY = 0, justDragged = false;
+
+    function cardAt(el){
+      for(var n = el; n && n !== wrap; n = n.parentElement){
+        if(n.classList && n.classList.contains('check-card')) return n;
+      }
+      return null;
+    }
+    function itemOfCard(card){
+      var id = card.getAttribute('data-id');
+      for(var i = 0; i < items.length; i++){ if(items[i].id === id) return items[i]; }
+      return null;
+    }
+    function clearMarks(){
+      wrap.querySelectorAll('.drag-over').forEach(function(c){ c.classList.remove('drag-over'); });
+    }
+    function eatScroll(e){ if(dragEl) e.preventDefault(); }   /* 拖动中拦住页面滚动 */
+
+    function startDrag(card){
+      var r = card.getBoundingClientRect();
+      dragEl = card;
+      grabX  = sx - r.left; grabY = sy - r.top;
+      ghost  = card.cloneNode(true);
+      ghost.classList.add('drag-ghost');
+      ghost.style.width = r.width + 'px';
+      ghost.style.left  = r.left + 'px';
+      ghost.style.top   = r.top  + 'px';
+      document.body.appendChild(ghost);
+      card.classList.add('drag-src');
+      document.addEventListener('touchmove', eatScroll, { passive:false });
+    }
+
+    function endDrag(commit, x, y){
+      clearTimeout(timer); timer = null;
+      document.removeEventListener('touchmove', eatScroll);
+      var src = dragEl, tgt = null;
+      if(commit && src){
+        var under = document.elementFromPoint(x, y);
+        tgt = under && cardAt(under);
+      }
+      if(ghost && ghost.parentNode) ghost.parentNode.removeChild(ghost);
+      ghost = null; dragEl = null;
+      clearMarks();
+      if(src) src.classList.remove('drag-src');
+      if(src){ justDragged = true; setTimeout(function(){ justDragged = false; }, 400); }
+      if(!(commit && tgt && tgt !== src)) return;
+
+      var moved = itemOfCard(src), over = itemOfCard(tgt);
+      if(!moved || !over || moved === over) return;
+      items.splice(items.indexOf(moved), 1);
+      items.splice(items.indexOf(over), 0, moved);
+      var u = Date.now(), changed = [];
+      items.forEach(function(p, i){
+        if((p.sort || 0) !== i){ p.sort = i; p.u = u + i; changed.push(p); }
+      });
+      saveItems(); render();
+      changed.forEach(function(p){ sync.pushItem(p); });
+    }
+
+    wrap.addEventListener('pointerdown', function(e){
+      if(e.target.closest && (e.target.closest('.cb') || e.target.closest('.skip'))) return;   /* 勾选框 / 叉照常点，不进入拖动 */
+      var card = cardAt(e.target);
+      if(!card) return;
+      sx = e.clientX; sy = e.clientY;
+      timer = setTimeout(function(){ startDrag(card); }, HOLD);
+    });
+    document.addEventListener('pointermove', function(e){
+      if(!dragEl){
+        if(timer && (Math.abs(e.clientX - sx) > WIGGLE || Math.abs(e.clientY - sy) > WIGGLE)){
+          clearTimeout(timer); timer = null;      /* 手指滑走了：是滚动，取消拖动 */
+        }
+        return;
+      }
+      ghost.style.left = (e.clientX - grabX) + 'px';
+      ghost.style.top  = (e.clientY - grabY) + 'px';
+      clearMarks();
+      var under = document.elementFromPoint(e.clientX, e.clientY);
+      var card  = under && cardAt(under);
+      if(card && card !== dragEl) card.classList.add('drag-over');
+    });
+    document.addEventListener('pointerup', function(e){ endDrag(true, e.clientX, e.clientY); });
+    document.addEventListener('pointercancel', function(){ endDrag(false, 0, 0); });
+    /* 拖动刚结束的那一下 click 吞掉，避免误触发勾选/朗读 */
+    wrap.addEventListener('click', function(e){
+      if(justDragged){ e.stopPropagation(); e.preventDefault(); }
+    }, true);
+  })();
+
+  /* 某项目当天是否被叉掉（叉掉 = 今天不用做，进度按完成算） */
+  function isSkipped(day, id){
+    return !!(day.skips && day.skips[id]);
+  }
+
+  /* 今日完成度：互斥组整组算 1 次，组内任意一项勾了或被叉掉就算整组完成；
+   * 单项目被叉掉时，按它该做的次数全部计入完成 */
+  function progressStat(){
+    var day = getDay(curDate);
+    var total = 0, done = 0, seenGroup = {};
+    items.forEach(function(p){
+      var g = p.exclGroup || '';
+      if(g){
+        /* 互斥组：整组只算 1 次 */
+        if(seenGroup[g]) return;
+        seenGroup[g] = true;
+        total += 1;
+        var any = false;
+        items.forEach(function(q){
+          if((q.exclGroup || '') !== g) return;
+          if(isSkipped(day, q.id)){ any = true; return; }
+          var a = day.checks[q.id] || [];
+          for(var i = 0; i < a.length; i++){ if(a[i]){ any = true; break; } }
+        });
+        if(any) done += 1;
+        return;
+      }
+      total += p.count;
+      if(isSkipped(day, p.id)){ done += p.count; return; }   /* 今天不用做 → 整项算完成 */
+      done += (day.checks[p.id] || []).filter(Boolean).length;
+    });
+    return { done: done, total: total, percent: total ? done / total * 100 : 0 };
+  }
+
+  /* 某个项目今天是否已全部做完：一天多次的要每次都勾上（「今天不用做」也算做完） */
+  function itemAllDone(day, p){
+    if(!p) return false;
+    if(isSkipped(day, p.id)) return true;
+    var a = day.checks[p.id] || [];
+    for(var i = 0; i < p.count; i++){ if(!a[i]) return false; }
+    return p.count > 0;
+  }
+
+  function renderProgress(){
+    var st = progressStat();
+    var el = document.getElementById('progressCard');
+    if(!st.total){
+      el.innerHTML = '还没有项目，点底部「管理项目」添加';
+      return;
+    }
+    el.innerHTML = '今日完成 <b>' + st.done + '/' + st.total + '</b> 次' +
+                   (st.done === st.total ? '，全部做完啦 🎉' : '');
+  }
+
+  function render(){
+    document.getElementById('datePicker').value = curDate;
+    renderChecks();
+    renderProgress();
+  }
+
+  function toggleCheck(key, idx){
+    var day = getDay(curDate);
+    var arr = day.checks[key];
+    var turningOn = !arr[idx];
+    var prevPct = progressStat().percent;      /* 勾选前的总进度，用来判断这次跨过了哪一档 */
+    var u   = Date.now();
+    if(!day.checkU) day.checkU = {};
+
+    /* 勾选也要能同步：用 app|日期|项目|第几个 作为固定 id */
+    function commit(k, i, t){
+      var sid = sidFor(curDate, k, i);
+      day.checkU[sid] = u;
+      sync.queue(rowFrom('check', curDate,
+               { id:sid, level:k, ml:i, time:t }, !t, u));
+    }
+
+    arr[idx] = turningOn ? nowTime() : null;
+    commit(key, idx, arr[idx]);
+
+    /* 互斥组：勾上一个时，自动取消同组其他项目这一天的勾选（并同步给云端） */
+    if(turningOn){
+      var g = (findItem(key) || {}).exclGroup || '';
+      if(g){
+        items.forEach(function(p){
+          if(p.id === key || (p.exclGroup || '') !== g) return;
+          var other = day.checks[p.id] || [];
+          for(var j = 0; j < other.length; j++){
+            if(other[j]){ other[j] = null; commit(p.id, j, null); }
+          }
+        });
+      }
+    }
+
+    save();
+    render();
+    /* 勾选（而不是取消）时：总进度跨过 30/50/80/100 档就播比例语音；
+     * 没跨档时，若这个项目今天已经全部做完（多次的要全勾上）才夸一句 */
+    if(turningOn && !cheerProgress(prevPct, progressStat().percent) && itemAllDone(day, findItem(key)))
+      speakItem(key, 'praise');
+  }
+
+  /* 「今天不用做」的叉：叉上后这一项按已完成计入下方总进度；再点一次取消。
+   * 标记同样以记录行的形式同步（type=skip），其他手机会保持一致。 */
+  function toggleSkip(key){
+    var day = getDay(curDate);
+    var sid = skipSid(curDate, key);
+    var turningOn = !(day.skips && day.skips[key]);
+    var prevPct = progressStat().percent;
+    var u = Date.now();
+    if(!day.checkU) day.checkU = {};
+
+    if(turningOn) day.skips[key] = nowTime();
+    else          delete day.skips[key];
+    day.checkU[sid] = u;
+    sync.queue(rowFrom('skip', curDate,
+             { id:sid, level:key, ml:null, time: turningOn ? day.skips[key] : null },
+             !turningOn, u));
+
+    save(); render();
+    if(turningOn) cheerProgress(prevPct, progressStat().percent);
+  }
+
+  /* ---------------- 日期切换 ---------------- */
+  document.getElementById('datePicker').addEventListener('change', function(e){
+    if(e.target.value){ curDate = e.target.value; render(); }
+  });
+  document.getElementById('prevDay').addEventListener('click', function(){
+    curDate = shiftDate(curDate, -1); render();
+  });
+  document.getElementById('nextDay').addEventListener('click', function(){
+    curDate = shiftDate(curDate, 1); render();
+  });
+  document.getElementById('todayBtn').addEventListener('click', function(){
+    curDate = todayStr(); render();
+  });
+
+  /* ---------------- 管理项目：增删项目、改名字、改每天次数 ---------------- */
+  var itemsMask = document.getElementById('itemsMask');
+
+  function renderItemList(){
+    var box = document.getElementById('itemList');
+    if(!items.length){
+      box.innerHTML = '<div class="empty">还没有项目，在下面添加吧</div>';
+      return;
+    }
+    /* 宽度下拉：0=自动（按次数），1~4=固定占几格 */
+    function widthOptions(p){
+      var w = (p.span >= 1 && p.span <= 4) ? Math.round(p.span) : 0;
+      var s = '<option value="0"' + (w === 0 ? ' selected' : '') + '>自动</option>';
+      for(var k = 1; k <= 4; k++){
+        s += '<option value="' + k + '"' + (w === k ? ' selected' : '') + '>' + k + '</option>';
+      }
+      return s;
+    }
+    var html = '';
+    items.forEach(function(p){
+      html += '<div class="item-block" data-id="' + escHtml(p.id) + '">' +
+                '<div class="item-row">' +
+                  '<input type="text" class="item-name" maxlength="12" value="' + escHtml(p.name) + '">' +
+                  '<input type="number" class="item-count" min="1" max="20" inputmode="numeric" value="' + p.count + '">' +
+                  '<button class="item-del" type="button" title="删除">×</button>' +
+                '</div>' +
+                '<div class="width-row">' +
+                  '<span class="width-tag">宽度</span>' +
+                  '<select class="item-span">' + widthOptions(p) + '</select>' +
+                  '<span class="say-hint">自动=按次数；1/2/3/4 = 占 1/4、1/2、3/4、整行</span>' +
+                '</div>' +
+                '<div class="say-row">' +
+                  '<button class="say-toggle" type="button">🔇 朗读</button>' +
+                  '<span class="say-hint">点项目名称念「叫溪溪」，勾选完成念「夸溪溪」</span>' +
+                '</div>' +
+                '<div class="say-block">' +
+                  '<div class="say-sub">叫溪溪来（点项目名称时念）</div>' +
+                  '<div class="say-list" data-kind="call"></div>' +
+                '</div>' +
+                '<div class="say-block">' +
+                  '<div class="say-sub">夸溪溪完成（勾选时念）</div>' +
+                  '<div class="say-list" data-kind="praise"></div>' +
+                '</div>' +
+                '<div class="excl-row">' +
+                  '<span class="excl-tag">互斥</span>' +
+                  '<input type="text" class="item-excl" maxlength="12" list="exclList" ' +
+                         'placeholder="互斥组名（填相同名字即互斥，可留空）" value="' + escHtml(p.exclGroup || '') + '">' +
+                '</div>' +
+              '</div>';
+    });
+    box.innerHTML = html;
+
+    /* 已有互斥组名做成候选项，第二个项目可直接选同一个组 */
+    var dl = document.getElementById('exclList');
+    if(dl){
+      var gs = [];
+      items.forEach(function(p){ if(p.exclGroup && gs.indexOf(p.exclGroup) < 0) gs.push(p.exclGroup); });
+      dl.innerHTML = gs.map(function(g){ return '<option value="' + escHtml(g) + '"></option>'; }).join('');
+    }
+
+    box.querySelectorAll('.item-block').forEach(function(block){
+      var id      = block.getAttribute('data-id');
+      var nameEl  = block.querySelector('.item-name');
+      var countEl = block.querySelector('.item-count');
+      var sayBtn  = block.querySelector('.say-toggle');
+      var sayEls  = {
+        call:   block.querySelector('.say-list[data-kind="call"]'),
+        praise: block.querySelector('.say-list[data-kind="praise"]')
+      };
+      var exclEl  = block.querySelector('.item-excl');
+      var exclTag = block.querySelector('.excl-tag');
+      var spanEl  = block.querySelector('.item-span');
+      var spanTag = block.querySelector('.width-tag');
+      var KINDS   = ['call', 'praise'];
+      var addBtns = {};
+
+      /* 收下某一组列表里的文案：去空白、限 60 字、丢掉空行 */
+      function collectSay(kind){
+        var out = [];
+        sayEls[kind].querySelectorAll('.say-text').forEach(function(el){
+          var t = normLine(el.value);
+          if(t) out.push(t);
+        });
+        return out;
+      }
+
+      /* 保存文案：有变化才写回本机数据并同步 */
+      function commitSay(){
+        var p = findItem(id);
+        if(!p) return;
+        var next = serialSayGroups({ call: collectSay('call'), praise: collectSay('praise') });
+        if(next === (p.sayText || '')) return;
+        p.sayText = next;
+        p.u = Date.now();
+        saveItems(); sync.pushItem(p);
+      }
+
+      /* 追加一行文案输入框 */
+      function addSayRow(kind, v, focus){
+        var p = findItem(id);
+        var div = document.createElement('div');
+        div.className = 'say-item';
+        var ph = kind === 'praise' ? defaultPraise(p ? p.name : '') : defaultCall(p ? p.name : '');
+        div.innerHTML = '<input type="text" class="say-text" maxlength="60" placeholder="' +
+                        escHtml(ph) + '" value="' + escHtml(v || '') + '">' +
+                        '<button class="say-del" type="button" title="删除这句">×</button>';
+        var input = div.querySelector('.say-text');
+        input.addEventListener('change', commitSay);
+        input.addEventListener('blur', commitSay);
+        div.querySelector('.say-del').addEventListener('click', function(){
+          div.parentNode.removeChild(div);
+          if(!sayEls[kind].querySelector('.say-item')) addSayRow(kind, '', false);   /* 至少留一行 */
+          commitSay();
+        });
+        sayEls[kind].insertBefore(div, addBtns[kind]);
+        if(focus) input.focus();
+        return div;
+      }
+
+      /* 开关 / 两组文案的界面状态，与已存数据保持一致 */
+      function syncSayUI(rebuild){
+        var p = findItem(id);
+        if(!p) return;
+        sayBtn.classList.toggle('on', !!p.say);
+        sayBtn.textContent = p.say ? '🔊 朗读' : '🔇 朗读';
+        var g = parseSayGroups(p.sayText);
+        KINDS.forEach(function(kind){
+          var el   = sayEls[kind];
+          var list = kind === 'praise' ? g.praise : g.call;
+          if(rebuild){
+            el.innerHTML = '';
+            var addBtn = document.createElement('button');
+            addBtn.type = 'button';
+            addBtn.className = 'say-add';
+            addBtn.textContent = '+ 添加一句';
+            addBtn.addEventListener('click', function(){
+              var q = findItem(id);
+              if(!q || !q.say) return;      /* 朗读开关关着时不添加 */
+              addSayRow(kind, '', true);
+            });
+            el.appendChild(addBtn);
+            addBtns[kind] = addBtn;
+            (list.length ? list : ['']).forEach(function(v){ addSayRow(kind, v, false); });
+          }else{
+            /* 只改了项目名：更新占位提示，未被编辑的输入框同步成新文案 */
+            var ph = kind === 'praise' ? defaultPraise(p.name) : defaultCall(p.name);
+            el.querySelectorAll('.say-item').forEach(function(row, i){
+              var input = row.querySelector('.say-text');
+              input.placeholder = ph;
+              if(document.activeElement !== input && list[i] !== undefined && input.value !== list[i])
+                input.value = list[i];
+            });
+          }
+          el.querySelectorAll('.say-text').forEach(function(input){ input.disabled = !p.say; });
+          el.querySelectorAll('.say-del').forEach(function(btn){ btn.disabled = !p.say; });
+          if(addBtns[kind]) addBtns[kind].disabled = !p.say;
+          el.classList.toggle('off', !p.say);
+        });
+      }
+
+      /* 互斥组标签的界面状态：有组名时点亮 */
+      function syncExclUI(){
+        var p = findItem(id);
+        if(!exclTag || !p) return;
+        exclTag.classList.toggle('on', !!(p.exclGroup));
+      }
+
+      function commitName(){
+        var p = findItem(id);
+        if(!p) return;
+        var name = String(nameEl.value || '').replace(/\s+/g, ' ').trim().slice(0, 12);
+        if(!name){ nameEl.value = p.name; return; }
+        if(name === p.name) return;
+        /* 文案还是默认那句时，跟着项目名一起改 */
+        var g  = parseSayGroups(p.sayText);
+        var oc = defaultCall(p.name),    nc = defaultCall(name);
+        var op = defaultPraise(p.name),  np = defaultPraise(name);
+        g.call   = g.call.map(function(t){ return t === oc ? nc : t; });
+        g.praise = g.praise.map(function(t){ return t === op ? np : t; });
+        p.sayText = serialSayGroups(g);
+        p.name = name;
+        p.u = Date.now();
+        saveItems(); render(); sync.pushItem(p);
+        syncSayUI(false);
+      }
+      function commitCount(){
+        var p = findItem(id);
+        if(!p) return;
+        var c = parseInt(countEl.value, 10);
+        if(!(c >= 1)) c = 1;
+        c = Math.min(c, 20);
+        countEl.value = c;
+        if(c === p.count) return;
+        p.count = c;
+        p.u = Date.now();
+        saveItems(); render(); sync.pushItem(p);
+      }
+
+      /* 互斥组名：留空 = 不互斥；两个项目填同一个名字 = 同一天只能勾一个 */
+      function commitExcl(){
+        var p = findItem(id);
+        if(!p) return;
+        var g = String(exclEl.value || '').replace(/\s+/g, ' ').trim().slice(0, 12);
+        exclEl.value = g;
+        if(g === (p.exclGroup || '')) return;
+        p.exclGroup = g;
+        p.u = Date.now();
+        saveItems(); render(); sync.pushItem(p);
+        syncExclUI();
+      }
+
+      /* 卡片宽度：自动（0）或固定占 1~4 格；固定后不再参与按名称的自动加宽 */
+      function spanVal(p){ return (p.span >= 1 && p.span <= 4) ? Math.round(p.span) : 0; }
+      function syncSpanUI(){
+        var p = findItem(id);
+        if(!spanEl || !p) return;
+        spanEl.value = String(spanVal(p));
+        if(spanTag) spanTag.classList.toggle('on', spanVal(p) > 0);
+      }
+      function commitSpan(){
+        var p = findItem(id);
+        if(!p || !spanEl) return;
+        var v = parseInt(spanEl.value, 10);
+        if(!(v >= 1 && v <= 4)) v = 0;
+        spanEl.value = String(v);
+        if(v === spanVal(p)) return;
+        p.span = v;
+        p.u = Date.now();
+        saveItems(); render(); sync.pushItem(p);
+        syncSpanUI();
+      }
+
+      nameEl.addEventListener('change', commitName);
+      nameEl.addEventListener('blur', commitName);
+      nameEl.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); nameEl.blur(); } });
+      countEl.addEventListener('change', commitCount);
+      countEl.addEventListener('blur', commitCount);
+      sayBtn.addEventListener('click', function(){
+        var p = findItem(id);
+        if(!p) return;
+        p.say = !p.say;
+        p.u = Date.now();
+        saveItems(); render(); sync.pushItem(p);
+        syncSayUI(true);
+        /* 打开时顺便试听一句（同时满足 iOS 必须由「点击」触发朗读的限制） */
+        if(p.say) speakItem(id);
+      });
+      if(exclEl){
+        exclEl.addEventListener('change', commitExcl);
+        exclEl.addEventListener('blur', commitExcl);
+      }
+      if(spanEl) spanEl.addEventListener('change', commitSpan);
+      block.querySelector('.item-del').addEventListener('click', function(){ deleteItem(id); });
+
+      syncSayUI(true);
+      syncExclUI();
+      syncSpanUI();
+    });
+  }
+
+  function openItems(){
+    renderItemList();
+    itemsMask.classList.add('show');
+  }
+  function closeItems(){ itemsMask.classList.remove('show'); }
+
+  function addItem(){
+    var nameEl  = document.getElementById('newItemName');
+    var countEl = document.getElementById('newItemCount');
+    var name = String(nameEl.value || '').replace(/\s+/g, ' ').trim().slice(0, 12);
+    if(!name){ nameEl.focus(); return; }
+
+    var c = parseInt(countEl.value, 10);
+    if(!(c >= 1)) c = 1;
+    c = Math.min(c, 20);
+
+    var maxSort = -1;
+    items.forEach(function(p){ if((p.sort || 0) > maxSort) maxSort = p.sort || 0; });
+
+    var it = { id: uid(), name: name, count: c, sort: maxSort + 1, u: Date.now(), exclGroup: '' };
+    items.push(it);
+    saveItems();
+    render();
+    renderItemList();
+    sync.pushItem(it);
+
+    nameEl.value = '';
+    countEl.value = '1';
+    nameEl.focus();
+  }
+
+  function deleteItem(id){
+    var p = findItem(id);
+    if(!p) return;
+    if(!confirm('删除项目「' + p.name + '」？\n\n已有的勾选记录会保留在数据库里，但页面不再显示。')) return;
+    items.splice(items.indexOf(p), 1);
+    saveItems();
+    render();
+    renderItemList();
+    sync.removeItem(p);        /* 云端该行标记删除，其他手机同步后也会消失 */
+  }
+
+  document.getElementById('manageItemsBtn').addEventListener('click', openItems);
+  document.getElementById('itemsClose').addEventListener('click', closeItems);
+  itemsMask.addEventListener('click', function(e){ if(e.target === itemsMask) closeItems(); });
+  document.getElementById('newItemAdd').addEventListener('click', addItem);
+  document.getElementById('newItemName').addEventListener('keydown', function(e){
+    if(e.key === 'Enter'){ e.preventDefault(); addItem(); }
+  });
+  document.getElementById('newItemCount').addEventListener('keydown', function(e){
+    if(e.key === 'Enter'){ e.preventDefault(); addItem(); }
+  });
+
+  /* ---------------- 数据导出 / 导入 ---------------- */
+  function exportData(){
+    var now = new Date();
+    var payload = {
+      app: 'xixi-records',
+      version: 1,
+      exportedAt: now.toISOString(),
+      items: items,          /* 备份里带上项目，换机/清缓存后能完整还原 */
+      records: data
+    };
+    var blob = new Blob([JSON.stringify(payload, null, 2)], { type:'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = '溪溪记录_' + now.getFullYear() + pad(now.getMonth() + 1) + pad(now.getDate()) + '.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 2000);
+  }
+
+  /* 清洗导入内容：只保留合法日期与规范结构 */
+  function sanitizeRecords(src){
+    var clean = {};
+    Object.keys(src).forEach(function(k){
+      var d = src[k];
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(k) || !d || typeof d !== 'object') return;
+
+      var day = { checks:{} };
+      var ck = (d.checks && typeof d.checks === 'object') ? d.checks : {};
+      items.forEach(function(p){
+        var arr = Array.isArray(ck[p.id]) ? ck[p.id] : [];
+        var out = [];
+        for(var i = 0; i < p.count; i++){
+          var t = arr[i];
+          out.push(typeof t === 'string' && /^\d{1,2}:\d{2}$/.test(t) ? t : null);
+        }
+        day.checks[p.id] = out;
+      });
+      /* 「今天不用做」标记：只保留仍然存在的项目 */
+      var sk = (d.skips && typeof d.skips === 'object') ? d.skips : {};
+      day.skips = {};
+      items.forEach(function(p){
+        if(sk[p.id]) day.skips[p.id] = (typeof sk[p.id] === 'string' && sk[p.id]) ? sk[p.id] : 'x';
+      });
+      clean[k] = day;
+    });
+    return clean;
+  }
+
+  /* 清洗导入的项目：名字必填、次数限 1~20、id 缺失自动补 */
+  function sanitizeItems(src){
+    var out = [], seen = {};
+    (Array.isArray(src) ? src : []).forEach(function(it, i){
+      if(!it || typeof it !== 'object') return;
+      var name = String(it.name == null ? '' : it.name).replace(/\s+/g, ' ').trim().slice(0, 12);
+      if(!name) return;
+      var id = (typeof it.id === 'string' && it.id) ? it.id : uid();
+      if(seen[id]) return;
+      seen[id] = 1;
+      var count = parseInt(it.count, 10);
+      var span  = parseInt(it.span, 10);
+      var sayText = serialSayGroups(parseSayGroups(it.sayText));
+      out.push({
+        id: id, name: name,
+        count: (count >= 1 && count <= 20) ? count : 1,
+        sort: (typeof it.sort === 'number') ? it.sort : i,
+        say: !!it.say,
+        sayText: sayText,
+        /* 卡片宽度：0=自动，1~4=固定占几格（导入备份时一并还原） */
+        span: (span >= 1 && span <= 4) ? span : 0,
+        /* 互斥组名：导入备份时一并还原（旧备份没有则留空） */
+        exclGroup: String(it.exclGroup == null ? '' : it.exclGroup).replace(/\s+/g, ' ').trim().slice(0, 12),
+        u: it.u || Date.now()
+      });
+    });
+    return out;
+  }
+
+  function importData(file){
+    var reader = new FileReader();
+    reader.onload = function(){
+      var obj;
+      try{
+        obj = JSON.parse(String(reader.result));
+      }catch(e){
+        alert('文件解析失败，请选择本应用导出的 JSON 备份文件。');
+        return;
+      }
+      var rec = (obj && obj.records && typeof obj.records === 'object') ? obj.records : obj;
+      if(!rec || typeof rec !== 'object' || Array.isArray(rec)){
+        alert('文件内容不是有效的记录数据。');
+        return;
+      }
+
+      /* 备份里带了项目就一并还原（旧备份没有 items 则保留当前项目，向后兼容） */
+      var importedItems = (obj && Array.isArray(obj.items)) ? sanitizeItems(obj.items) : null;
+
+      var clean = sanitizeRecords(rec);
+      var newDays = Object.keys(clean).length;
+      if(!newDays){
+        alert('文件里没有可导入的日期记录。');
+        return;
+      }
+
+      var oldDays = Object.keys(data).length;
+      if(!confirm('将用文件中的 ' + newDays + ' 天记录覆盖本机现有的 ' + oldDays + ' 天记录。\n\n' +
+                  '覆盖后无法撤销，建议先点「导出数据」备份。是否继续？')) return;
+
+      if(importedItems && importedItems.length){
+        items = importedItems;
+        saveItems();
+        items.forEach(function(it){ sync.pushItem(it); });
+      }
+
+      data = clean;
+      save();
+      curDate = todayStr();
+      render();
+
+      /* 导入的是一份完整数据 → 清掉已传标记，下次同步整份重新上传（以本机为准） */
+      sync.clearSynced();
+      sync.now();
+
+      alert('导入完成：共 ' + newDays + ' 天记录。');
+    };
+    reader.readAsText(file);
+  }
+
+  var importFile = document.getElementById('importFile');
+  document.getElementById('exportBtn').addEventListener('click', exportData);
+  document.getElementById('importBtn').addEventListener('click', function(){ importFile.click(); });
+  importFile.addEventListener('change', function(){
+    if(importFile.files && importFile.files[0]) importData(importFile.files[0]);
+    importFile.value = '';
+  });
+
+  /* ================= 云端同步（Supabase） =================
+   * 传输 / 队列 / 合并 的通用逻辑都在 sync.js 里（溪溪项目独立部署，自带一份）。
+   * 溪溪只记录勾选，不记奶量和臭臭，所以这里只处理 check 类型的行。
+   */
+  /* 本地一条记录 → 云端一行 */
+  function rowFrom(type, dayStr, item, deleted, u){
+    u = u || Date.now();
+    var row = {
+      id: item.id, day: dayStr, type: type,
+      time: item.time, level: item.level,
+      ml: item.ml > 0 ? item.ml : null,
+      deleted: !!deleted,
+      updated_at: new Date(u).toISOString()
+    };
+    if(type === 'check'){ row.ml = item.ml; }   /* 勾选：level=项目、ml=第几个（0 也要保留） */
+    return row;
+  }
+
+  /* 云端一行 → 合并进本机；返回是否有改动 */
+  function applyRow(r){
+    if(r.type === 'check') return applyCheckRow(r, Date.parse(r.updated_at) || 0);
+    if(r.type === 'skip')  return applySkipRow(r, Date.parse(r.updated_at) || 0);
+    return false;                              /* 溪溪不存奶量/臭臭 */
+  }
+
+  /* 「今天不用做」标记：叉上时云端存一条 time 有值的行，取消叉时该行置 deleted */
+  function applySkipRow(r, u){
+    var key = r.level;
+    if(!findItem(key)) return false;           /* 项目被删掉时，标记直接忽略 */
+    if(sync.isTombstoned(r.id)) return false;
+
+    var day = data[r.day];
+    if(r.deleted && !day) return false;
+    if(!day) day = data[r.day] = { checks:{} };
+    if(!day.skips)  day.skips  = {};
+    if(!day.checkU) day.checkU = {};
+
+    if((day.checkU[r.id] || 0) >= u) return false;
+    if(r.deleted) delete day.skips[key];
+    else          day.skips[key] = r.time || nowTime();
+    day.checkU[r.id] = u;
+    return true;
+  }
+
+  function applyCheckRow(r, u){
+    var key = r.level, idx = r.ml;
+    var proj = findItem(key);                 /* 项目被删掉时，历史记录直接忽略、不显示 */
+    if(!proj || !(idx >= 0 && idx < proj.count)) return false;
+
+    if(sync.isTombstoned(r.id)) return false;
+
+    var day = data[r.day];
+    if(!day){
+      if(r.deleted) return false;
+      day = data[r.day] = { checks:{} };
+    }
+    if(!day.checks) day.checks = {};
+    if(!Array.isArray(day.checks[key])) day.checks[key] = [];
+    while(day.checks[key].length < proj.count) day.checks[key].push(null);
+    if(!day.checkU) day.checkU = {};
+
+    if((day.checkU[r.id] || 0) >= u) return false;
+    day.checks[key][idx] = r.deleted ? null : (r.time || null);
+    day.checkU[r.id] = u;
+    return true;
+  }
+
+  /* 首次全量上传：把某一天的本机记录（含「今天不用做」标记）全部变成云端行 */
+  function allRows(dayStr, d){
+    var now = Date.now();
+    var rows = [];
+    if(!d.checkU) d.checkU = {};
+    Object.keys(d.checks || {}).forEach(function(key){
+      (d.checks[key] || []).forEach(function(t, idx){
+        if(t === null || t === undefined) return;   /* 没勾的不上传 */
+        var sid = sidFor(dayStr, key, idx);
+        if(!d.checkU[sid]) d.checkU[sid] = now;
+        rows.push(rowFrom('check', dayStr,
+                 { id:sid, level:key, ml:idx, time:t }, false, d.checkU[sid]));
+      });
+    });
+    Object.keys(d.skips || {}).forEach(function(key){
+      if(!d.skips[key] || !findItem(key)) return;
+      var sid = skipSid(dayStr, key);
+      if(!d.checkU[sid]) d.checkU[sid] = now;
+      rows.push(rowFrom('skip', dayStr,
+               { id:sid, level:key, ml:null, time:d.skips[key] }, false, d.checkU[sid]));
+    });
+    return rows;
+  }
+
+  /* 把"溪溪的数据长什么样"交给共用的同步模块 */
+  var sync = FamilySync.create({
+    app:        APP_ID,
+    url:        'https://spb-gn2d24aqdg6g5qla.supabase.opentrust.net',
+    key:        'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYW5vbiIsInJlZiI6InNwYi1nbjJkMjRhcWRnNmc1cWxhIiwiaXNzIjoic3VwYWJhc2UiLCJpYXQiOjE3ODM1MTg2ODUsImV4cCI6MjA5OTA5NDY4NX0.M8E6GPBbZyeobXlIew7oFi4D-1xB54hCHqZ4aE9X6WU',
+    /* 与多多同一个实例、同一个 public schema，靠独立的表名 + app 列隔开 */
+    schema:     'public',
+    table:      'duoduo_records',
+    itemsTable: 'duoduo_items',
+    itemSayFields: true,        /* 项目表额外存「朗读开关 + 文案」两个字段 */
+    itemExclField: true,        /* 项目表额外存「互斥组」字段 */
+    itemSpanField: true,        /* 项目表额外存「卡片宽度」字段 */
+    sayingsTable: 'duoduo_sayings',   /* 进度鼓励文案表（只读，按 30/50/80/100 四档播报） */
+    keys: {
+      data:         STORE_KEY,
+      items:        ITEMS_KEY,
+      tomb:         'xixi_tomb_v1',
+      tombItems:    'xixi_tomb_items_v1',
+      pending:      'xixi_pending_v1',
+      pendingItems: 'xixi_pending_items_v1',
+      synced:       'xixi_synced_v1',
+      sayings:      'xixi_sayings_v1'
+    },
+    getData:       function(){ return data;  },
+    getItems:      function(){ return items; },
+    onChange:      function(){ save(); render(); },
+    onItemsChange: function(){ saveItems(); render(); },
+    rowFrom:       rowFrom,
+    applyRow:      applyRow,
+    allRows:       allRows,
+    seedItems:     function(){
+      return SEED_ITEMS.map(function(p){ return { id:p.id, name:p.name, count:p.count }; });
+    }
+  });
+
+  document.getElementById('syncBtn').addEventListener('click', sync.now);
+
+  /* ---------------- 启动 ---------------- */
+  render();
+  sync.now();
+})();
+</script>
+
+<script>
+/* ---------------- PWA：离线缓存 + 手动更新版本 ----------------
+ * 与多多完全一致的策略：装好后从本机缓存读取（秒开、可离线），
+ * 需要新版时点「更新版本」粘贴最新链接，由 sw.js 抓取并替换缓存。
+ */
+(function(){
+  var supported = ('serviceWorker' in navigator) && location.protocol === 'https:';
+  var btn       = document.getElementById('updateBtn');
+  var mask      = document.getElementById('updateMask');
+  var input     = document.getElementById('updateInput');
+  var hint      = document.getElementById('updateHint');
+  var okBtn     = document.getElementById('updateOk');
+  var cancelBtn = document.getElementById('updateCancel');
+
+  /* 注册地址拼接 location.search：EdgeOne 预览的 token 在查询串里，
+   * 不带上会被鉴权拦成 401，sw.js 注册失败离线缓存就完全不生效 */
+  if(supported){
+    window.addEventListener('load', function(){
+      navigator.serviceWorker.register('sw.js' + location.search, { updateViaCache: 'none' }).catch(function(){});
+    });
+  }
+
+  function openMask(){
+    if(!supported){
+      alert('当前环境不支持离线缓存（需通过 https 访问）。');
+      return;
+    }
+    hint.textContent = '仅替换页面缓存，不影响已有记录';
+    okBtn.disabled = false;
+    input.value = '';   /* 留空：iPhone 的独立窗口拿不到新 token，更新必须粘贴控制台新链接 */
+    mask.classList.add('show');
+    setTimeout(function(){ input.focus(); }, 60);
+  }
+  function closeMask(){ mask.classList.remove('show'); }
+
+  /* 统一按完整链接处理；没写协议头则自动补 https:// */
+  function buildUrl(v){
+    v = (v || '').trim();
+    if(!v) return '';
+    if(!/^https?:\/\//i.test(v)) v = 'https://' + v.replace(/^\/+/, '');
+    try{ return new URL(v).href; }catch(err){ return ''; }
+  }
+
+  function doUpdate(){
+    /* 留空就用当前页面地址：打开最新的预览链接后，点「更新」即可，无需手动粘贴长链接 */
+    var url = buildUrl(input.value) || buildUrl(location.href);
+    if(!url){ hint.textContent = '请粘贴完整链接（域名 + token）'; return; }
+
+    okBtn.disabled = true;
+    hint.textContent = '正在获取最新版本…';
+
+    navigator.serviceWorker.ready.then(function(reg){
+      var sw = reg.active || reg.waiting || reg.installing;
+      if(!sw) throw new Error('no sw');
+
+      var done = false;
+      var timer = setTimeout(function(){ finish(false); }, 25000);
+
+      function finish(ok){
+        if(done) return;
+        done = true;
+        clearTimeout(timer);
+        navigator.serviceWorker.removeEventListener('message', onMsg);
+        if(ok){
+          hint.textContent = '更新成功，正在刷新…';
+          location.reload();
+        }else{
+          okBtn.disabled = false;
+          hint.textContent = '更新失败：当前链接已失效，请回控制台点「预览」拿新链接后重试';
+        }
+      }
+      function onMsg(ev){
+        var d = ev.data || {};
+        if(d.type === 'UPDATE_RESULT') finish(!!d.ok);
+      }
+
+      navigator.serviceWorker.addEventListener('message', onMsg);
+      /* 由 SW 自己抓取新版本：成功才替换缓存，失败保留原缓存 */
+      sw.postMessage({ type: 'UPDATE', url: url });
+    }).catch(function(){
+      okBtn.disabled = false;
+      hint.textContent = '更新失败：离线服务未就绪，请刷新页面后重试';
+    });
+  }
+
+  if(btn) btn.addEventListener('click', openMask);
+  if(okBtn) okBtn.addEventListener('click', doUpdate);
+  if(cancelBtn) cancelBtn.addEventListener('click', closeMask);
+  if(mask) mask.addEventListener('click', function(e){ if(e.target === mask) closeMask(); });
+  if(input) input.addEventListener('keydown', function(e){
+    if(e.key === 'Enter') doUpdate();
+  });
+})();
+</script>
+</body>
+</html>

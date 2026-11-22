@@ -60,10 +60,10 @@
     color:var(--main-deep);font-size:13px;padding:7px 10px;cursor:pointer;font-family:inherit;
   }
 
-  /* ---------- 按次项目卡片（每行 4 格，宽度按每天次数占格） ---------- */
+  /* ---------- 按次项目卡片（每行 8 格，宽度按每天次数占格） ---------- */
   .section{margin-top:22px;}
   /* dense：卡片加宽后自动回填空位，位置和大小互相自适应 */
-  .check-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;align-items:start;grid-auto-flow:row dense;}
+  .check-cards{display:grid;grid-template-columns:repeat(8,1fr);gap:8px;align-items:start;grid-auto-flow:row dense;}
   .check-card{
     position:relative;
     background:var(--card);border-radius:14px;padding:10px;
@@ -233,9 +233,19 @@
   }
   .modal .say-add:active{background:#eef3f9;}
   .modal .say-add:disabled{border-color:#eef2f7;color:#ccd6e0;cursor:default;}
-  /* 两组朗读文案：call=点项目名称时念（叫溪溪来），praise=勾选完成时念（夸溪溪） */
+  /* 两组朗读文案：call=点项目名称时念（叫溪溪来），praise=勾选完成时念（夸溪溪）
+   * 默认收起，点标题展开，避免项目多时弹层过长 */
   .modal .say-block{padding:0 0 8px;}
-  .modal .say-sub{font-size:11px;font-weight:600;color:var(--main-deep);padding:0 0 6px;}
+  .modal .say-sub{
+    display:flex;align-items:center;justify-content:space-between;gap:8px;
+    font-size:11px;font-weight:600;color:var(--main-deep);padding:0 0 6px;
+    cursor:pointer;user-select:none;-webkit-user-select:none;
+  }
+  .modal .say-sub:active{opacity:.6;}
+  .modal .say-sub::after{content:'展开';font-weight:400;color:var(--text-sub);}
+  .modal .say-block.open .say-sub::after{content:'收起';}
+  .modal .say-block .say-list{display:none;}
+  .modal .say-block.open .say-list{display:flex;}
   /* 每个项目的「互斥组」：两个项目填同一个组名，同一天只能勾一个，统计也只算一次 */
   .modal .excl-row,.modal .width-row{display:flex;align-items:center;gap:8px;padding:0 0 10px;}
   .modal .excl-tag,.modal .width-tag{
@@ -250,7 +260,7 @@
     font-size:13px;font-family:inherit;color:var(--text);outline:none;background:#fbfdff;
   }
   .modal .item-excl:focus{border-color:var(--main);background:#fff;}
-  /* 卡片宽度：自动（按次数 + 名称自适应）或手动固定占 1~4 格（1 格 = 1/4 行） */
+  /* 卡片宽度：自动（按次数 + 名称自适应）或手动固定占 1~8 格（1 格 = 1/8 行） */
   .modal .item-span{
     flex:0 0 auto;min-width:74px;border:2px solid var(--line);border-radius:10px;padding:8px 6px;
     font-size:13px;font-family:inherit;color:var(--text);outline:none;background:#fbfdff;
@@ -390,7 +400,9 @@
 
   var STORE_KEY = 'xixi_records_v1';
   var ITEMS_KEY = 'xixi_items_v1';
+  var SPAN_MIGRATED_KEY = 'xixi_span8_v1';
   var APP_ID    = 'xixi';
+  var spanMigrated = [];   /* 本次从旧 4 格宽度迁移到 8 格的项目 */
 
   /* 默认项目：仅在本机与云端都没有项目时用来播种（之后以数据库为准，可随时增删） */
   var SEED_ITEMS = [
@@ -449,7 +461,19 @@
     try{
       var raw = localStorage.getItem(ITEMS_KEY);
       var list = raw ? JSON.parse(raw) : [];
-      return Array.isArray(list) ? list : [];
+      if(!Array.isArray(list)) return [];
+      /* 卡片宽度从 4 格制改为 8 格制：旧的手动宽度 1~4 翻倍，保持原视觉大小（只迁移一次） */
+      if(localStorage.getItem(SPAN_MIGRATED_KEY) === null){
+        list.forEach(function(p){
+          if(p && p.span >= 1 && p.span <= 4){
+            p.span = p.span * 2;
+            spanMigrated.push({ p:p, u:p.u });
+          }
+        });
+        if(spanMigrated.length) localStorage.setItem(ITEMS_KEY, JSON.stringify(list));
+        localStorage.setItem(SPAN_MIGRATED_KEY, '1');
+      }
+      return list;
     }catch(e){ return []; }
   }
 
@@ -624,7 +648,7 @@
   }
 
   /* ---------------- 进度鼓励：跨过 30% / 50% / 80% / 100% 时播报 ----------------
-   * 文案存在云端 duoduo_sayings 表（stage = 30/50/80/100），本机只读缓存。
+   * 文案存在云端进度鼓励文案表（沿用表名 duoduo_sayings，stage = 30/50/80/100），本机只读缓存。
    * 占位符 {done} {left} {percent} 替换成真实数字；{percent} 用中文读法（百分之六十二）。 */
   var STAGES    = [30, 50, 80, 100];
   var STAGE_KEY = 'xixi_say_stage_v1';
@@ -695,7 +719,7 @@
     window.speechSynthesis.onvoiceschanged = pickVoice;
   }
 
-  /* 勾选记录在云端的主键：必须带 app 前缀，否则和多多同一天同项目会撞车 */
+  /* 勾选记录在云端的主键：固定带 xixi 前缀，保持与库里已有数据格式一致 */
   function sidFor(dayStr, key, idx){
     return APP_ID + '|' + dayStr + '|' + key + '|' + idx;
   }
@@ -725,24 +749,24 @@
     var wrap = document.getElementById('checkCards');
 
     if(!items.length){
-      wrap.innerHTML = '<div class="check-card" style="grid-column:span 4">' +
+      wrap.innerHTML = '<div class="check-card" style="grid-column:span 8">' +
                          '<div class="cname" style="font-weight:400;font-size:13px;color:var(--text-sub)">' +
                            '还没有项目，点底部「管理项目」添加吧 ~</div></div>';
       return;
     }
 
-    /* 卡片占几格：手动配了 p.span（1~4）就固定用它；否则按每天次数（1 次占 1/4，2 次占一半，
-     * 3 次占 3/4，4 次及以上占满行），之后再由 fitCardSpans 按名称长度自适应加宽 */
+    /* 卡片占几格：手动配了 p.span（1~8）就固定用它；否则按每天次数（1 次占 2 格=1/4 行，
+     * 2 次占一半、3 次占 3/4、4 次及以上占满行），之后再由 fitCardSpans 按名称长度自适应加宽 */
     function spanOf(p){
-      if(p.span >= 1 && p.span <= 4) return Math.round(p.span);
+      if(p.span >= 1 && p.span <= 8) return Math.round(p.span);
       var s = p.count > 0 ? p.count : 1;
-      return s > 4 ? 4 : s;
+      return s * 2 > 8 ? 8 : s * 2;
     }
     /* 单张卡片：inGroup 时作为卡片组的成员，按占格数分配组内宽度，不再单独占网格格位 */
     function cardHtml(p, inGroup){
       var times = day.checks[p.id] || [];
       var span  = spanOf(p);
-      var fixed = (p.span >= 1 && p.span <= 4);   /* 手动指定的宽度固定生效，不再自动加宽 */
+      var fixed = (p.span >= 1 && p.span <= 8);   /* 手动指定的宽度固定生效，不再自动加宽 */
       var skipped = !!(day.skips && day.skips[p.id]);   /* 叉掉 = 今天不用做 */
       var html = '<div class="check-card' + (skipped ? ' skipped' : '') + '" data-id="' + escHtml(p.id) + '"' +
                  (inGroup ? ' style="flex-grow:' + span + '"'
@@ -781,7 +805,7 @@
     var html = '';
     blocks.forEach(function(members){
       if(members.length > 1){
-        var gspan = members.length > 4 ? 4 : members.length;
+        var gspan = members.length * 2 > 8 ? 8 : members.length * 2;
         html += '<div class="check-group" data-group="' + escHtml(members[0].exclGroup) + '"' +
                 ' style="grid-column:span ' + gspan + '">';
         members.forEach(function(p){ html += cardHtml(p, true); });
@@ -819,7 +843,7 @@
       if(!txt) return;
       var span = parseInt(card.getAttribute('data-span'), 10) || 1;
       card.style.gridColumn = 'span ' + span;
-      while(span < 4 && txt.scrollWidth > txt.clientWidth){
+      while(span < 8 && txt.scrollWidth > txt.clientWidth){
         span++;
         card.style.gridColumn = 'span ' + span;
       }
@@ -1071,11 +1095,11 @@
       box.innerHTML = '<div class="empty">还没有项目，在下面添加吧</div>';
       return;
     }
-    /* 宽度下拉：0=自动（按次数），1~4=固定占几格 */
+    /* 宽度下拉：0=自动（按次数），1~8=固定占几格 */
     function widthOptions(p){
-      var w = (p.span >= 1 && p.span <= 4) ? Math.round(p.span) : 0;
+      var w = (p.span >= 1 && p.span <= 8) ? Math.round(p.span) : 0;
       var s = '<option value="0"' + (w === 0 ? ' selected' : '') + '>自动</option>';
-      for(var k = 1; k <= 4; k++){
+      for(var k = 1; k <= 8; k++){
         s += '<option value="' + k + '"' + (w === k ? ' selected' : '') + '>' + k + '</option>';
       }
       return s;
@@ -1091,7 +1115,7 @@
                 '<div class="width-row">' +
                   '<span class="width-tag">宽度</span>' +
                   '<select class="item-span">' + widthOptions(p) + '</select>' +
-                  '<span class="say-hint">自动=按次数；1/2/3/4 = 占 1/4、1/2、3/4、整行</span>' +
+                  '<span class="say-hint">自动=按次数（1 次=1/4）；1~8 = 占 1/8 ~ 整行</span>' +
                 '</div>' +
                 '<div class="say-row">' +
                   '<button class="say-toggle" type="button">🔇 朗读</button>' +
@@ -1113,6 +1137,13 @@
               '</div>';
     });
     box.innerHTML = html;
+
+    /* 朗读文案默认收起，点标题展开 / 收起 */
+    box.querySelectorAll('.say-sub').forEach(function(sub){
+      sub.addEventListener('click', function(){
+        sub.parentNode.classList.toggle('open');
+      });
+    });
 
     /* 已有互斥组名做成候选项，第二个项目可直接选同一个组 */
     var dl = document.getElementById('exclList');
@@ -1273,8 +1304,8 @@
         syncExclUI();
       }
 
-      /* 卡片宽度：自动（0）或固定占 1~4 格；固定后不再参与按名称的自动加宽 */
-      function spanVal(p){ return (p.span >= 1 && p.span <= 4) ? Math.round(p.span) : 0; }
+      /* 卡片宽度：自动（0）或固定占 1~8 格；固定后不再参与按名称的自动加宽 */
+      function spanVal(p){ return (p.span >= 1 && p.span <= 8) ? Math.round(p.span) : 0; }
       function syncSpanUI(){
         var p = findItem(id);
         if(!spanEl || !p) return;
@@ -1285,7 +1316,7 @@
         var p = findItem(id);
         if(!p || !spanEl) return;
         var v = parseInt(spanEl.value, 10);
-        if(!(v >= 1 && v <= 4)) v = 0;
+        if(!(v >= 1 && v <= 8)) v = 0;
         spanEl.value = String(v);
         if(v === spanVal(p)) return;
         p.span = v;
@@ -1380,7 +1411,7 @@
     var now = new Date();
     var payload = {
       app: 'xixi-records',
-      version: 1,
+      version: 2,
       exportedAt: now.toISOString(),
       items: items,          /* 备份里带上项目，换机/清缓存后能完整还原 */
       records: data
@@ -1425,8 +1456,9 @@
     return clean;
   }
 
-  /* 清洗导入的项目：名字必填、次数限 1~20、id 缺失自动补 */
-  function sanitizeItems(src){
+  /* 清洗导入的项目：名字必填、次数限 1~20、id 缺失自动补；
+   * 旧版备份（version < 2）的宽度是 4 格制，导入时翻倍成 8 格制 */
+  function sanitizeItems(src, legacySpan){
     var out = [], seen = {};
     (Array.isArray(src) ? src : []).forEach(function(it, i){
       if(!it || typeof it !== 'object') return;
@@ -1437,6 +1469,7 @@
       seen[id] = 1;
       var count = parseInt(it.count, 10);
       var span  = parseInt(it.span, 10);
+      if(legacySpan && span >= 1 && span <= 4) span *= 2;
       var sayText = serialSayGroups(parseSayGroups(it.sayText));
       out.push({
         id: id, name: name,
@@ -1444,8 +1477,8 @@
         sort: (typeof it.sort === 'number') ? it.sort : i,
         say: !!it.say,
         sayText: sayText,
-        /* 卡片宽度：0=自动，1~4=固定占几格（导入备份时一并还原） */
-        span: (span >= 1 && span <= 4) ? span : 0,
+        /* 卡片宽度：0=自动，1~8=固定占几格（导入备份时一并还原） */
+        span: (span >= 1 && span <= 8) ? span : 0,
         /* 互斥组名：导入备份时一并还原（旧备份没有则留空） */
         exclGroup: String(it.exclGroup == null ? '' : it.exclGroup).replace(/\s+/g, ' ').trim().slice(0, 12),
         u: it.u || Date.now()
@@ -1471,7 +1504,8 @@
       }
 
       /* 备份里带了项目就一并还原（旧备份没有 items 则保留当前项目，向后兼容） */
-      var importedItems = (obj && Array.isArray(obj.items)) ? sanitizeItems(obj.items) : null;
+      var legacySpan = !(obj && obj.version >= 2);
+      var importedItems = (obj && Array.isArray(obj.items)) ? sanitizeItems(obj.items, legacySpan) : null;
 
       var clean = sanitizeRecords(rec);
       var newDays = Object.keys(clean).length;
@@ -1608,13 +1642,10 @@
     app:        APP_ID,
     url:        'https://spb-gn2d24aqdg6g5qla.supabase.opentrust.net',
     key:        'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYW5vbiIsInJlZiI6InNwYi1nbjJkMjRhcWRnNmc1cWxhIiwiaXNzIjoic3VwYWJhc2UiLCJpYXQiOjE3ODM1MTg2ODUsImV4cCI6MjA5OTA5NDY4NX0.M8E6GPBbZyeobXlIew7oFi4D-1xB54hCHqZ4aE9X6WU',
-    /* 与多多同一个实例、同一个 public schema，靠独立的表名 + app 列隔开 */
+    /* 沿用拆分前的云端表名（duoduo_*），通过 app 列只读写 xixi 数据 */
     schema:     'public',
     table:      'duoduo_records',
     itemsTable: 'duoduo_items',
-    itemSayFields: true,        /* 项目表额外存「朗读开关 + 文案」两个字段 */
-    itemExclField: true,        /* 项目表额外存「互斥组」字段 */
-    itemSpanField: true,        /* 项目表额外存「卡片宽度」字段 */
     sayingsTable: 'duoduo_sayings',   /* 进度鼓励文案表（只读，按 30/50/80/100 四档播报） */
     keys: {
       data:         STORE_KEY,
@@ -1638,17 +1669,34 @@
     }
   });
 
+  /* 旧宽度迁移后的项目补传云端：先让首轮拉取合并完云端数据，避免旧字段覆盖新数据 */
+  function pushMigratedSpans(){
+    if(!spanMigrated.length) return;
+    var t = Date.now();
+    spanMigrated.forEach(function(m){
+      var p = m.p;
+      if(items.indexOf(p) < 0) return;          /* 拉取时已被云端删除 */
+      /* u 变了说明这行被云端数据覆盖过，拿到的还是旧 4 格制宽度，再翻一次 */
+      if(p.u !== m.u && p.span >= 1 && p.span <= 4) p.span *= 2;
+      p.u = t;
+      sync.pushItem(p);
+    });
+    spanMigrated = [];
+    saveItems();
+    render();
+  }
+
   document.getElementById('syncBtn').addEventListener('click', sync.now);
 
   /* ---------------- 启动 ---------------- */
   render();
-  sync.now();
+  sync.now().then(pushMigratedSpans, pushMigratedSpans);
 })();
 </script>
 
 <script>
 /* ---------------- PWA：离线缓存 + 手动更新版本 ----------------
- * 与多多完全一致的策略：装好后从本机缓存读取（秒开、可离线），
+ * 离线优先：装好后从本机缓存读取（秒开、可离线），
  * 需要新版时点「更新版本」粘贴最新链接，由 sw.js 抓取并替换缓存。
  */
 (function(){

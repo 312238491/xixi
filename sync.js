@@ -1,13 +1,12 @@
-/* sync.js —— 家庭日常记录 · 共用的云端同步模块
+/* sync.js —— 溪溪的日常记录 · 云端同步模块
  *
- * 多多和溪溪两个页面引用同一份，只保留一份易出错的传输/队列/合并逻辑。
- * 它不认识「奶量」「臭臭」这些东西，只负责：
+ * 只保留一份易出错的传输 / 队列 / 合并逻辑，它不认识「维生素AD」这类业务字段，只负责：
  *   - 请求（anon key 走 apikey，schema 走 Profile 头，带 8 秒超时）
  *   - 待推送队列（同一个 id 只留最新一条，分批 200 条 upsert）
  *   - 墓碑（本机删掉的 id，防止被别的手机的旧数据拉回来）
  *   - 拉取全量（按 app 过滤 + Range 翻页）并交给页面合并
- *   - 项目类别表（duoduo_items）的读写，两个页面共用
- *   - 进度鼓励文案表（duoduo_sayings）的只读拉取（只有溪溪启用，多多不填即关闭）
+ *   - 项目类别表（duoduo_items）的读写
+ *   - 进度鼓励文案表（duoduo_sayings）的只读拉取
  *
  * 页面负责的（只有它知道自己的数据形状）：
  *   rowFrom / applyRow / allRows / seedItems / getData / setData / ...
@@ -35,7 +34,7 @@
   }
 
   function create(cfg){
-    var APP     = cfg.app;                    /* 云端 app 列：'duoduo' / 'xixi' */
+    var APP     = cfg.app;                    /* 云端 app 列：固定 'xixi' */
     var URL     = cfg.url;
     var KEY     = cfg.key;
     var SCHEMA  = cfg.schema || 'public';
@@ -44,20 +43,16 @@
     var TIMEOUT = cfg.timeout || 8000;        /* 单次请求上限(ms) */
     var BATCH   = 200;                        /* 每次推送的行数上限 */
     var PAGE_SIZE = 1000;                     /* 接口单次最多返回的行数 */
-    var SAY       = !!cfg.itemSayFields;      /* 项目表是否带「朗读开关 + 朗读文案」两个字段 */
-    var EXCL      = !!cfg.itemExclField;      /* 项目表是否带「互斥组」字段 */
-    var SPAN      = !!cfg.itemSpanField;      /* 项目表是否带「卡片宽度」字段 */
-    var SAYTBL    = cfg.sayingsTable || '';   /* 进度鼓励文案表（不填 = 不启用，多多不填） */
+    var SAYTBL    = cfg.sayingsTable;         /* 进度鼓励文案表（只读） */
     var K = cfg.keys || {};
 
     /* PostgREST 批量插入要求同一批所有行的字段完全一致。
-     * 旧版页面排进队列的行缺字段键（喂奶没有 level、勾选/臭臭没有 bml），
-     * 新旧混批会整批 400 卡死队列，这里启动时统一补齐缺失的字段。 */
+     * 旧队列里的行缺字段键时，新旧混批会整批 400 卡死队列，
+     * 这里启动时统一补齐缺失的字段。 */
     function normalizePendingRow(r){
       if(r && typeof r === 'object'){
         if(!('level' in r)) r.level = null;
-        if(!('ml'   in r)) r.ml   = null;
-        if(!('bml'  in r)) r.bml  = null;
+        if(!('ml'    in r)) r.ml   = null;
       }
       return r;
     }
@@ -67,10 +62,10 @@
     var recPending     = readJSON(K.pending, []).map(normalizePendingRow);   /* 还没推上去的记录行 */
     var itemPending    = readJSON(K.pendingItems, []).map(function(r){
       /* 后加的字段：旧队列里的行缺这个键会让整批 upsert 报 400，先补齐 */
-      if(SPAN && r && typeof r === 'object' && !('card_span' in r)) r.card_span = 0;
+      if(r && typeof r === 'object' && !('card_span' in r)) r.card_span = 0;
       return r;
     });                                               /* 还没推上去的项目行 */
-    /* 进度鼓励文案：整表从云端拉下来缓存到本机（只读、不回传；只有溪溪用） */
+    /* 进度鼓励文案：整表从云端拉下来缓存到本机（只读、不回传） */
     var sayingsCache   = (SAYTBL && K.sayings) ? readJSON(K.sayings, []) : [];
     if(!Array.isArray(sayingsCache)) sayingsCache = [];
 
@@ -125,15 +120,13 @@
       });
     }
 
-    /* ---------------- 项目类别（两个页面共用一套结构） ---------------- */
-    /* 项目 id 在云端统一带 app 前缀。
-     * 两个页面的项目存同一张表，多多的「维生素AD」和溪溪的「维生素AD」
-     * 本机 id 都叫 vitaminAD；主键只有 id 时它们会互相覆盖，导致后传的那个被吞掉。
+    /* ---------------- 项目类别 ---------------- */
+    /* 项目 id 在云端统一带固定前缀，保持与库里已有数据格式一致。
      * 前缀只活在网络层，页面里的 id 与导出的数据仍是干净的短 id。 */
-    function wireId(id){ return APP + ':' + id; }
+    var ID_PREFIX = 'xixi:';
+    function wireId(id){ return ID_PREFIX + id; }
     function localId(id){
-      var p = APP + ':';
-      return String(id).indexOf(p) === 0 ? String(id).slice(p.length) : String(id);
+      return String(id).indexOf(ID_PREFIX) === 0 ? String(id).slice(ID_PREFIX.length) : String(id);
     }
 
     function rowFromItem(item, deleted, u){
@@ -146,18 +139,19 @@
         deleted: !!deleted,
         updated_at: new Date(u || Date.now()).toISOString()
       };
-      /* 朗读设置（只有带该字段的页面才写，避免影响老页面） */
-      if(SAY){ row.say = !!item.say; row.say_text = item.sayText || ''; }
-      /* 互斥组（同一天同组只能勾一个；只有带该字段的页面才写） */
-      if(EXCL){ row.excl_group = item.exclGroup || ''; }
-      /* 卡片宽度（0=自动；只有带该字段的页面才写） */
-      if(SPAN){ row.card_span = (item.span >= 1 && item.span <= 4) ? Math.round(item.span) : 0; }
+      /* 朗读开关 + 文案 */
+      row.say = !!item.say;
+      row.say_text = item.sayText || '';
+      /* 互斥组（同一天同组只能勾一个） */
+      row.excl_group = item.exclGroup || '';
+      /* 卡片宽度（0=自动，1~8=固定占几格） */
+      row.card_span = (item.span >= 1 && item.span <= 8) ? Math.round(item.span) : 0;
       return row;
     }
 
     /* 云端一行 → 合并进本机项目列表；列表是页面传进来的同一个数组，直接改 */
     function applyItemRow(r){
-      var id = localId(r.id);                    /* 去掉 app 前缀，还原成页面里的短 id */
+      var id = localId(r.id);                    /* 去掉固定前缀，还原成页面里的短 id */
       if(itemTombstones[id]) return false;
       var u    = Date.parse(r.updated_at) || 0;
       var list = cfg.getItems();
@@ -173,16 +167,18 @@
         cur.name  = r.name;
         cur.count = r.count > 0 ? r.count : 1;
         cur.sort  = r.sort || 0;
-        if(SAY){ cur.say = !!r.say; cur.sayText = r.say_text || ''; }
-        if(EXCL){ cur.exclGroup = r.excl_group || ''; }
-        if(SPAN){ cur.span = (r.card_span >= 1 && r.card_span <= 4) ? Math.round(r.card_span) : 0; }
+        cur.say = !!r.say;
+        cur.sayText = r.say_text || '';
+        cur.exclGroup = r.excl_group || '';
+        cur.span = (r.card_span >= 1 && r.card_span <= 8) ? Math.round(r.card_span) : 0;
         cur.u     = u;
         return true;
       }
       var fresh = { id:id, name:r.name, count: r.count > 0 ? r.count : 1, sort: r.sort || 0, u:u };
-      if(SAY){ fresh.say = !!r.say; fresh.sayText = r.say_text || ''; }
-      if(EXCL){ fresh.exclGroup = r.excl_group || ''; }
-      if(SPAN){ fresh.span = (r.card_span >= 1 && r.card_span <= 4) ? Math.round(r.card_span) : 0; }
+      fresh.say = !!r.say;
+      fresh.sayText = r.say_text || '';
+      fresh.exclGroup = r.excl_group || '';
+      fresh.span = (r.card_span >= 1 && r.card_span <= 8) ? Math.round(r.card_span) : 0;
       list.push(fresh);
       return true;
     }
@@ -259,7 +255,7 @@
 
       sbFetch(ITEMS, {
         method: 'POST',
-        query:  '?on_conflict=id',       /* 云端 id 已带 app 前缀，全局唯一，按 id 覆盖即可 */
+        query:  '?on_conflict=id',       /* 云端 id 带固定前缀，全局唯一，按 id 覆盖即可 */
         prefer: 'resolution=merge-duplicates,return=minimal',
         body:   JSON.stringify(sent)
       }).then(function(){
@@ -294,7 +290,6 @@
     /* ---------------- 进度鼓励文案（只读） ---------------- */
     /* 文案在数据库里维护，页面只管读下来缓存；拉取失败不影响记录同步。 */
     function pullSayings(){
-      if(!SAYTBL) return Promise.resolve(false);
       return sbFetch(SAYTBL, {
         method: 'GET',
         query:  '?app=eq.' + encodeURIComponent(APP) + '&order=stage.asc,sort.asc,id.asc'
@@ -379,7 +374,7 @@
     function syncNow(){
       lastPull = Date.now();
       setState('☁ 同步中…', 'busy');
-      pullItems().then(function(itemChanged){
+      return pullItems().then(function(itemChanged){
         return pullSayings().then(function(){
         return pullRecords().then(function(recChanged){
           /* 本机没有项目、云端也从没有过项目行 → 用页面给的种子初始化（并同步出去） */
